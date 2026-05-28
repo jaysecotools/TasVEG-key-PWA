@@ -1,25 +1,46 @@
 let db;
-const req=indexedDB.open("tasvegDB",1);
+const req = indexedDB.open("tasvegDB", 1);
 
-req.onupgradeneeded=e=>{
-db=e.target.result;
-db.createObjectStore("records",{keyPath:"id"});
+req.onupgradeneeded = e => {
+    db = e.target.result;
+    if (!db.objectStoreNames.contains("records")) {
+        db.createObjectStore("records", { keyPath: "id" });
+    }
 };
 
-req.onsuccess=e=>db=e.target.result;
+req.onsuccess = e => {
+    db = e.target.result;
+};
 
-function saveToDB(record){
-return new Promise(res=>{
-const tx=db.transaction("records","readwrite");
-tx.objectStore("records").put(record);
-tx.oncomplete=()=>res();
-});
+req.onerror = e => {
+    console.error("IndexedDB error:", e.target.error);
+};
+
+function saveToDB(record) {
+    return new Promise((resolve, reject) => {
+        if (!db) {
+            reject("Database not ready");
+            return;
+        }
+        const tx = db.transaction("records", "readwrite");
+        const store = tx.objectStore("records");
+        const request = store.put(record);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+        tx.oncomplete = () => resolve();
+    });
 }
 
-function getAllRecords(){
-return new Promise(res=>{
-const tx=db.transaction("records","readonly");
-const r=tx.objectStore("records").getAll();
-r.onsuccess=()=>res(r.result);
-});
+function getAllRecords() {
+    return new Promise((resolve, reject) => {
+        if (!db) {
+            reject("Database not ready");
+            return;
+        }
+        const tx = db.transaction("records", "readonly");
+        const store = tx.objectStore("records");
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
 }
