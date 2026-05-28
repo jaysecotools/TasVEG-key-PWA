@@ -8,9 +8,7 @@
   "background_color": "#eef2ef",
   "theme_color": "#1b6133",
   "description": "Offline Tasmanian vegetation field assessment tool",
-
   "icons": [
-
     {
       "src": "icons/icon-192x192.png",
       "sizes": "192x192",
@@ -21,7 +19,6 @@
       "sizes": "512x512",
       "type": "image/png"
     },
-
     {
       "src": "icons/icon-192x192-maskable.png",
       "sizes": "192x192",
@@ -34,7 +31,6 @@
       "type": "image/png",
       "purpose": "maskable"
     },
-
     {
       "src": "icons/icon-180x180.png",
       "sizes": "180x180",
@@ -45,6 +41,5 @@
       "sizes": "152x152",
       "type": "image/png"
     }
-
   ]
 }
