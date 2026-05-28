@@ -1,0 +1,978 @@
+I have the new code for an app I'm creating, but it needs to be fixed. I'm also providing the previous, single-file inline version I started with, below it. My new code must look and feel like the old one, with all the extras that the new one is missing, like the traffic light scoring, warnings, etc. It also needs to have the installation option as a pop-up, not something that looks bad sitting at the top of the screen. the installation does work correctly however, and I also have an icons folder with the code. I just need the new one to be more professional and deployable. can you please rewrite the sections that need changing, and provide me the complete updated files?
+
+new app code files.
+app.js:
+let map = L.map('map').setView([-42,147],6);
+let marker;
+let currentLatLng = null;
+let photos = [];
+
+// MAP
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+attribution:'OSM'
+}).addTo(map);
+
+// CLICK TO DROP MARKER (NEW FEATURE #1)
+map.on('click', e=>{
+setMarker(e.latlng.lat, e.latlng.lng);
+});
+
+function setMarker(lat,lon){
+currentLatLng = {lat,lon};
+
+if(marker) map.removeLayer(marker);
+marker = L.marker([lat,lon],{draggable:true}).addTo(map);
+
+marker.on('dragend', e=>{
+const pos = e.target.getLatLng();
+currentLatLng = {lat:pos.lat,lon:pos.lng};
+});
+
+document.getElementById("coords").innerText =
+lat.toFixed(5)+", "+lon.toFixed(5);
+
+map.setView([lat,lon],14);
+}
+
+// GPS
+function getLocation(){
+navigator.geolocation.getCurrentPosition(pos=>{
+setMarker(pos.coords.latitude,pos.coords.longitude);
+});
+}
+
+// ---------------- PHOTO COMPRESSION (NEW FEATURE #3) ----------------
+document.getElementById("photoInput").addEventListener("change", async e=>{
+const files=[...e.target.files];
+
+for(let file of files){
+const compressed = await compress(file,0.6);
+photos.push(compressed);
+
+let img=document.createElement("img");
+img.src=compressed;
+document.getElementById("photoPreview").appendChild(img);
+}
+});
+
+function compress(file,quality){
+return new Promise(resolve=>{
+const img=new Image();
+img.src=URL.createObjectURL(file);
+
+img.onload=()=>{
+const canvas=document.createElement("canvas");
+const ctx=canvas.getContext("2d");
+
+const scale=800/img.width;
+canvas.width=800;
+canvas.height=img.height*scale;
+
+ctx.drawImage(img,0,0,canvas.width,canvas.height);
+resolve(canvas.toDataURL("image/jpeg",quality));
+};
+});
+}
+
+// ---------------- FULL TASVEG DATASET RESTORED (FEATURE #7) ----------------
+const communities = [
+{
+code:"WET",
+name:"Wet Eucalypt Forest",
+traits:{structure:"forest",moisture:"wet",dominant:"eucalypt"},
+species:["Eucalyptus obliqua","Eucalyptus regnans","Dicksonia antarctica"]
+},
+{
+code:"DGL",
+name:"Dry Eucalypt Forest",
+traits:{structure:"forest",moisture:"dry",dominant:"eucalypt"},
+species:["Eucalyptus amygdalina","Eucalyptus nitida","Banksia marginata"]
+},
+{
+code:"R",
+name:"Cool Temperate Rainforest",
+traits:{structure:"forest",moisture:"wet",dominant:"rainforest"},
+species:["Nothofagus cunninghamii","Atherosperma moschatum"]
+},
+{
+code:"WDL",
+name:"Eucalypt Woodland",
+traits:{structure:"woodland",moisture:"dry",dominant:"eucalypt"},
+species:["Eucalyptus viminalis","Eucalyptus ovata"]
+},
+{
+code:"SH",
+name:"Heathland",
+traits:{structure:"scrub",moisture:"dry"},
+species:["Epacris impressa","Banksia marginata"]
+},
+{
+code:"M",
+name:"Buttongrass Moorland",
+traits:{structure:"treeless",moisture:"waterlogged",dominant:"buttongrass"},
+species:["Gymnoschoenus sphaerocephalus"]
+},
+{
+code:"SW",
+name:"Sedgeland / Rushland",
+traits:{structure:"treeless",moisture:"waterlogged",dominant:"sedges"},
+species:["Baumea","Juncus","Carex"]
+},
+{
+code:"ALP",
+name:"Alpine Complex",
+traits:{structure:"treeless",moisture:"alpine"},
+species:["Richea scoparia","Podocarpus lawrencei"]
+}
+];
+
+// ---------------- EXPLAINABLE ENGINE ----------------
+function score(comm,input){
+
+let score=0;
+let explanation=[];
+
+function check(k,w){
+if(input[k]===comm.traits[k]){
+score+=w;
+explanation.push(`✔ ${k} +${w}`);
+}
+}
+
+check("structure",4);
+check("moisture",3);
+check("dominant",4);
+check("elevation",2);
+
+// species
+input.species.forEach(s=>{
+comm.species.forEach(c=>{
+if(c.toLowerCase().includes(s)){
+score+=6;
+explanation.push("🌿 "+c+" +6");
+}
+});
+});
+
+return {score,explanation};
+}
+
+// ---------------- ANALYSIS ----------------
+function runAnalysis(){
+
+const input={
+structure:structure.value,
+moisture:moisture.value,
+dominant:dominant.value,
+elevation:elevation.value,
+species:species.value.toLowerCase().split(",").map(s=>s.trim())
+};
+
+let results=communities.map(c=>{
+let r=score(c,input);
+return {...c,...r};
+}).sort((a,b)=>b.score-a.score);
+
+let html="<h3>Results</h3>";
+
+results.forEach(r=>{
+html+=`
+<div class="result">
+<b>${r.code} - ${r.name}</b><br>
+Score: ${r.score}<br>
+<div class="small">${r.explanation.join("<br>")}</div>
+</div>`;
+});
+
+document.getElementById("results").innerHTML=html;
+}
+
+// ---------------- SAVE RECORD ----------------
+async function saveRecord(){
+
+const record={
+id:Date.now(),
+time:new Date().toISOString(),
+location:currentLatLng,
+inputs:{
+structure:structure.value,
+moisture:moisture.value,
+dominant:dominant.value,
+elevation:elevation.value,
+species:species.value
+},
+photos,
+results:document.getElementById("results").innerHTML
+};
+
+await saveToDB(record);
+alert("Saved offline ✔");
+}
+
+export.js:
+async function exportJSON(){
+const data = await getAllRecords();
+download(JSON.stringify(data,null,2),"tasveg-records.json","application/json");
+}
+
+async function exportCSV(){
+const data = await getAllRecords();
+
+let csv = "id,timestamp,structure,moisture,dominant,elevation,species\n";
+
+data.forEach(r=>{
+csv += `${r.id},${r.timestamp},${r.inputs.structure},${r.inputs.moisture},${r.inputs.dominant},${r.inputs.elevation},"${r.inputs.species}"\n`;
+});
+
+download(csv,"tasveg-records.csv","text/csv");
+}
+
+function download(content,file,type){
+const blob = new Blob([content],{type});
+const a = document.createElement("a");
+a.href = URL.createObjectURL(blob);
+a.download = file;
+a.click();
+}
+
+insdex.html:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>TasVEG Field System v7.2</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1b6133">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+body { margin:0; font-family:Arial; background:#eef2ef; }
+header { background:#1b6133; color:white; padding:12px; }
+
+.container { padding:12px; max-width:1000px; margin:auto; }
+
+.card { background:white; padding:12px; border-radius:10px; margin-bottom:10px; }
+
+label { font-weight:bold; display:block; margin-top:8px; }
+
+select,input,button { width:100%; padding:10px; margin-top:6px; }
+
+button { background:#1b6133; color:white; border:none; cursor:pointer; }
+
+#map { height:260px; border-radius:10px; margin-top:10px; }
+
+.result { background:#f4faf6; border-left:5px solid #1b6133; padding:10px; margin-top:10px; }
+
+.small { font-size:0.85em; opacity:0.8; }
+
+.photo-preview img { width:90px; margin:5px; border-radius:6px; }
+
+footer {
+text-align:center;
+font-size:0.8em;
+padding:12px;
+color:#666;
+border-top:1px solid #ddd;
+margin-top:20px;
+}
+
+.install-box {
+background:#fff8e1;
+padding:10px;
+border-left:5px solid #f9a825;
+margin-bottom:10px;
+display:none;
+}
+
+details { background:white; padding:10px; border-radius:8px; margin-bottom:10px; }
+summary { font-weight:bold; cursor:pointer; color:#1b6133; }
+</style>
+</head>
+
+<body>
+
+<header>🌿 TasVEG Field System v7.2 (Installable PWA)</header>
+
+<div class="container">
+
+<!-- INSTALL PROMPT -->
+<div id="installContainer" class="install-box">
+<b>Install TasVEG App</b><br>
+<button onclick="installApp()">Install Now</button>
+</div>
+
+<!-- GUIDE -->
+<details>
+<summary>📘 User Guide</summary>
+<p>This tool identifies Tasmanian vegetation communities using field inputs and species observations.</p>
+</details>
+
+<!-- MAP -->
+<div class="card">
+<h3>📍 Site Mapping</h3>
+<button onclick="getLocation()">Use GPS</button>
+<div id="coords" class="small"></div>
+<div id="map"></div>
+</div>
+
+<!-- INPUTS -->
+<div class="card">
+<h3>Field Data</h3>
+
+<label>Structure</label>
+<select id="structure">
+<option></option>
+<option value="forest">Forest</option>
+<option value="woodland">Woodland</option>
+<option value="scrub">Scrub</option>
+<option value="treeless">Treeless</option>
+</select>
+
+<label>Moisture</label>
+<select id="moisture">
+<option></option>
+<option value="dry">Dry</option>
+<option value="wet">Wet</option>
+<option value="waterlogged">Waterlogged</option>
+<option value="coastal">Coastal</option>
+<option value="alpine">Alpine</option>
+</select>
+
+<label>Dominant</label>
+<select id="dominant">
+<option></option>
+<option value="eucalypt">Eucalypt</option>
+<option value="rainforest">Rainforest</option>
+<option value="buttongrass">Buttongrass</option>
+<option value="melaleuca">Melaleuca</option>
+<option value="sedges">Sedges</option>
+</select>
+
+<label>Elevation</label>
+<select id="elevation">
+<option></option>
+<option value="low">Low</option>
+<option value="mid">Mid</option>
+<option value="high">High</option>
+</select>
+
+<label>Observed Species</label>
+<input id="species">
+
+<label>📸 Photos</label>
+<input type="file" accept="image/*" capture="environment" id="photoInput" multiple>
+<div id="photoPreview" class="photo-preview"></div>
+
+<button onclick="runAnalysis()">Run Analysis</button>
+<button onclick="saveRecord()">Save Record</button>
+<button onclick="exportJSON()">Export JSON</button>
+<button onclick="exportCSV()">Export CSV</button>
+
+</div>
+
+<div id="results"></div>
+
+<footer>
+TasVEG Field System v7.2 © 2026
+</footer>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script src="storage.js"></script>
+<script src="export.js"></script>
+<script src="app.js"></script>
+
+<!-- SERVICE WORKER -->
+<script>
+if ('serviceWorker' in navigator) {
+window.addEventListener('load', () => {
+navigator.serviceWorker.register('sw.js');
+});
+}
+</script>
+
+<!-- INSTALL PROMPT LOGIC -->
+<script>
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+e.preventDefault();
+deferredPrompt = e;
+document.getElementById("installContainer").style.display = "block";
+});
+
+async function installApp() {
+if (!deferredPrompt) return;
+
+deferredPrompt.prompt();
+const result = await deferredPrompt.userChoice;
+deferredPrompt = null;
+}
+</script>
+
+</body>
+</html>
+
+manifest.json:
+{
+  "name": "TasVEG Field System",
+  "short_name": "TasVEG",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eef2ef",
+  "theme_color": "#1b6133",
+  "description": "Offline Tasmanian vegetation field assessment tool",
+
+  "icons": [
+
+    {
+      "src": "icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+
+    {
+      "src": "icons/icon-192x192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-512x512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+
+    {
+      "src": "icons/icon-180x180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    }
+
+  ]
+}
+
+storage.js:
+let db;
+const req=indexedDB.open("tasvegDB",1);
+
+req.onupgradeneeded=e=>{
+db=e.target.result;
+db.createObjectStore("records",{keyPath:"id"});
+};
+
+req.onsuccess=e=>db=e.target.result;
+
+function saveToDB(record){
+return new Promise(res=>{
+const tx=db.transaction("records","readwrite");
+tx.objectStore("records").put(record);
+tx.oncomplete=()=>res();
+});
+}
+
+function getAllRecords(){
+return new Promise(res=>{
+const tx=db.transaction("records","readonly");
+const r=tx.objectStore("records").getAll();
+r.onsuccess=()=>res(r.result);
+});
+}
+
+sw.js:
+const CACHE = "tasveg-v7.2";
+
+const ASSETS = [
+  "./",
+  "./index.html",
+  "./app.js",
+  "./storage.js",
+  "./export.js",
+  "./manifest.json",
+  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+];
+
+self.addEventListener("install", e => {
+  self.skipWaiting();
+  e.waitUntil(
+    caches.open(CACHE).then(cache => cache.addAll(ASSETS))
+  );
+});
+
+self.addEventListener("activate", e => {
+  e.waitUntil(self.clients.claim());
+});
+
+self.addEventListener("fetch", e => {
+  e.respondWith(
+    caches.match(e.request).then(res => res || fetch(e.request))
+  );
+});
+
+Old app code:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TasVEG Key Tool</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #eef2ef;
+    margin: 20px;
+}
+
+.container {
+    max-width: 1000px;
+    margin: auto;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+h1 { color: #1b6133; }
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+select, input {
+    width: 100%;
+    padding: 10px;
+    margin-top: 5px;
+}
+
+button {
+    margin-top: 20px;
+    padding: 12px;
+    width: 100%;
+    background: #1b6133;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.card {
+    background: #f1f8f4;
+    padding: 15px;
+    border-left: 5px solid #1b6133;
+    margin-bottom: 10px;
+}
+
+.score {
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.reason {
+    font-size: 0.9em;
+    margin-top: 6px;
+    opacity: 0.9;
+}
+
+/* GUIDE */
+details.guide {
+    background: #f7faf8;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    border: 1px solid #d9e5dd;
+}
+
+details.guide summary {
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1.1em;
+    color: #1b6133;
+}
+
+/* FOOTER */
+.footer {
+    margin-top: 25px;
+    text-align: center;
+    font-size: 0.85em;
+    color: #666;
+    padding-top: 10px;
+    border-top: 1px solid #ddd;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🌿 TasVEG Community Key</h1>
+
+<!-- ================= COLLAPSIBLE GUIDE ================= -->
+<details class="guide">
+<summary>📘 User Guide & Key Species (click to expand)</summary>
+
+<div style="margin-top:10px;">
+
+<p>
+This tool identifies Tasmanian vegetation communities based on structural and ecological traits.
+Select site conditions and optionally enter observed plant species.
+</p>
+
+<ul>
+<li><strong>Structure:</strong> Forest, woodland, scrub, treeless</li>
+<li><strong>Moisture:</strong> Dry, wet, waterlogged, coastal, alpine</li>
+<li><strong>Dominant:</strong> Vegetation group (eucalypt, rainforest, buttongrass, melaleuca, sedges)</li>
+<li><strong>Elevation:</strong> Low, mid, high</li>
+<li><strong>Species:</strong> Optional comma-separated observations</li>
+</ul>
+
+<hr style="border:none; border-top:1px solid #d9e5dd; margin:15px 0;">
+
+<h3 style="color:#1b6133;">🌱 Key Species Reference</h3>
+
+<p><strong>Forests:</strong><br>
+Eucalyptus obliqua, E. regnans, E. delegatensis, Nothofagus cunninghamii, Atherosperma moschatum</p>
+
+<p><strong>Woodlands:</strong><br>
+Eucalyptus viminalis, E. ovata, Allocasuarina verticillata, Banksia marginata</p>
+
+<p><strong>Scrub & Heath:</strong><br>
+Leptospermum scoparium, Melaleuca squarrosa, Epacris impressa, Pultenaea juniperina</p>
+
+<p><strong>Wetlands:</strong><br>
+Gymnoschoenus sphaerocephalus, Baumea spp., Juncus spp., Carex spp., Sphagnum cristatum</p>
+
+<p><strong>Coastal:</strong><br>
+Sarcocornia quinqueflora, Tecticornia arbuscula, Spinifex sericeus, Ammophila arenaria</p>
+
+<p><strong>Alpine:</strong><br>
+Richea scoparia, Donatia novae-zelandiae, Podocarpus lawrencei</p>
+
+</div>
+</details>
+
+<div class="grid">
+
+<div>
+
+<label>Structure</label>
+<select id="structure">
+<option value="">--</option>
+<option value="forest">Forest</option>
+<option value="woodland">Woodland</option>
+<option value="scrub">Scrub</option>
+<option value="treeless">Treeless</option>
+</select>
+
+<label>Moisture</label>
+<select id="moisture">
+<option value="">--</option>
+<option value="dry">Dry</option>
+<option value="wet">Wet</option>
+<option value="waterlogged">Waterlogged</option>
+<option value="coastal">Coastal</option>
+<option value="alpine">Alpine</option>
+</select>
+
+<label>Dominant</label>
+<select id="dominant">
+<option value="">--</option>
+<option value="eucalypt">Eucalypt</option>
+<option value="rainforest">Rainforest</option>
+<option value="buttongrass">Buttongrass</option>
+<option value="melaleuca">Tea-tree</option>
+<option value="paperbark">Paperbark (Swamp Melaleuca)</option>
+<option value="sedges">Sedges</option>
+<option value="grass">Grass</option>
+</select>
+
+<label>Elevation</label>
+<select id="elevation">
+<option value="">--</option>
+<option value="low">Lowland</option>
+<option value="mid">Mid</option>
+<option value="high">Highland</option>
+</select>
+
+<label>Observed Species</label>
+<input type="text" id="speciesInput" placeholder="e.g. Eucalyptus obliqua">
+
+<button onclick="runKey()">Identify Community</button>
+
+</div>
+
+<div id="output"></div>
+
+</div>
+
+<!-- ================= FOOTER ================= -->
+<div class="footer">
+TasVEG Community Key v4.5.3 © 2026 Jay Rowley
+</div>
+
+</div>
+
+<script>
+
+// ================= DATASET =================
+const communities = [
+
+{
+code: "WET",
+name: "Wet Eucalypt Forest",
+group: "Forest",
+traits: { structure:"forest", moisture:"wet", dominant:"eucalypt" },
+species: ["Eucalyptus obliqua","Eucalyptus regnans","Eucalyptus delegatensis","Dicksonia antarctica","Atherosperma moschatum"]
+},
+
+{
+code: "DGL",
+name: "Dry Eucalypt Forest and Woodland",
+group: "Forest",
+traits: { structure:"forest", moisture:"dry", dominant:"eucalypt" },
+species: ["Eucalyptus amygdalina","Eucalyptus pulchella","Eucalyptus nitida","Eucalyptus viminalis","Banksia marginata"]
+},
+
+{
+code: "R",
+name: "Cool Temperate Rainforest",
+group: "Forest",
+traits: { structure:"forest", moisture:"wet", dominant:"rainforest" },
+species: ["Nothofagus cunninghamii","Atherosperma moschatum","Anodopetalum biglandulosum","Dicksonia antarctica"]
+},
+
+{
+code: "MYF",
+name: "Mixed Forest",
+group: "Forest",
+traits: { structure:"forest", moisture:"wet", dominant:"mixed" },
+species: ["Eucalyptus obliqua","Nothofagus cunninghamii"]
+},
+
+{
+code: "WDL",
+name: "Eucalypt Woodland",
+group: "Woodland",
+traits: { structure:"woodland", moisture:"dry", dominant:"eucalypt" },
+species: ["Eucalyptus viminalis","Eucalyptus ovata","Allocasuarina verticillata"]
+},
+
+{
+code: "SKL",
+name: "Scrub Woodland Complex",
+group: "Woodland",
+traits: { structure:"woodland", moisture:"dry", dominant:"mixed" },
+species: ["Acacia dealbata","Allocasuarina verticillata","Banksia marginata"]
+},
+
+{
+code: "SH",
+name: "Heathland",
+group: "Scrub",
+traits: { structure:"scrub", moisture:"dry" },
+species: ["Epacris impressa","Pultenaea juniperina","Banksia marginata"]
+},
+
+{
+code: "SL",
+name: "Tea-tree Scrub",
+group: "Scrub",
+traits: { structure:"scrub", dominant:"melaleuca" },
+species: ["Leptospermum scoparium","Melaleuca squarrosa","Melaleuca ericifolia"]
+},
+
+{
+code: "MPF",
+name: "Swamp Paperbark Forest",
+group: "Wetland Forest",
+traits: { structure:"forest", moisture:"waterlogged", dominant:"paperbark" },
+species: ["Melaleuca ericifolia","Melaleuca squarrosa","Leptospermum lanigerum","Sphagnum cristatum","Baumea rubiginosa"]
+},
+
+{
+code: "M",
+name: "Buttongrass Moorland",
+group: "Wetland",
+traits: { structure:"treeless", moisture:"waterlogged", dominant:"buttongrass" },
+species: ["Gymnoschoenus sphaerocephalus"]
+},
+
+{
+code: "SW",
+name: "Sedgeland / Rushland",
+group: "Wetland",
+traits: { structure:"treeless", moisture:"waterlogged", dominant:"sedges" },
+species: ["Baumea","Juncus","Carex"]
+},
+
+{
+code: "SPH",
+name: "Sphagnum Peatland",
+group: "Wetland",
+traits: { structure:"treeless", moisture:"waterlogged" },
+species: ["Sphagnum cristatum","Drosera arcturi"]
+},
+
+{
+code: "SM",
+name: "Saltmarsh",
+group: "Coastal",
+traits: { structure:"treeless", moisture:"coastal" },
+species: ["Sarcocornia quinqueflora","Tecticornia arbuscula"]
+},
+
+{
+code: "SD",
+name: "Coastal Dune Scrub",
+group: "Coastal",
+traits: { structure:"scrub", moisture:"coastal" },
+species: ["Spinifex sericeus","Ammophila arenaria","Banksia marginata"]
+},
+
+{
+code: "ALP",
+name: "Alpine Complex",
+group: "Alpine",
+traits: { structure:"treeless", moisture:"alpine", elevation:"high" },
+species: ["Richea scoparia","Donatia novae-zelandiae","Podocarpus lawrencei"]
+}
+
+];
+
+const WEIGHTS = {
+structure: 4,
+moisture: 3,
+dominant: 4,
+elevation: 2
+};
+
+const SPECIES_WEIGHT = 6;
+
+function applyExclusions(comm, inputs) {
+
+let penalty = 0;
+let reasons = [];
+
+if (inputs.structure === "treeless" && comm.traits.structure === "forest") {
+penalty -= 6;
+reasons.push("✖ structure mismatch");
+}
+
+if (inputs.dominant === "buttongrass" && comm.code !== "M") {
+penalty -= 4;
+reasons.push("✖ buttongrass exclusion");
+}
+
+if (inputs.elevation === "high" && comm.traits.elevation === "low") {
+penalty -= 3;
+reasons.push("✖ elevation mismatch");
+}
+
+return { penalty, reasons };
+}
+
+function scoreCommunity(comm, inputs) {
+
+let score = 0;
+let reasons = [];
+
+for (let key in comm.traits) {
+
+let weight = WEIGHTS[key] || 1;
+
+if (inputs[key] === comm.traits[key]) {
+score += weight;
+reasons.push(`✔ ${key} (+${weight})`);
+} else if (inputs[key]) {
+score -= Math.round(weight / 2);
+}
+}
+
+if (inputs.species.length > 0 && comm.species) {
+
+inputs.species.forEach(obs => {
+comm.species.forEach(sp => {
+if (sp.toLowerCase().includes(obs.toLowerCase())) {
+score += SPECIES_WEIGHT;
+reasons.push(`🌿 species match: ${sp}`);
+}
+});
+});
+
+}
+
+let exclusion = applyExclusions(comm, inputs);
+score += exclusion.penalty;
+reasons = reasons.concat(exclusion.reasons);
+
+return { score, reasons };
+}
+
+function getConfidence(score) {
+
+if (score >= 12) return { label: "High confidence", colour: "#2e7d32", icon: "🟢" };
+if (score >= 6) return { label: "Moderate confidence", colour: "#f9a825", icon: "🟡" };
+return { label: "Low confidence", colour: "#c62828", icon: "🔴" };
+}
+
+function runKey() {
+
+const inputs = {
+structure: structure.value,
+moisture: moisture.value,
+dominant: dominant.value,
+elevation: elevation.value,
+species: speciesInput.value.split(",").map(s => s.trim()).filter(Boolean)
+};
+
+let results = communities.map(c => {
+let s = scoreCommunity(c, inputs);
+return { ...c, ...s };
+}).sort((a,b)=>b.score-a.score);
+
+let html = "<h3>Top Likely Communities</h3>";
+
+results.slice(0,7).forEach(r => {
+
+const conf = getConfidence(r.score);
+
+html += `
+<div class="card">
+<div class="score">${conf.icon} ${r.code} — ${r.name}</div>
+<div>
+<strong>Score:</strong> ${r.score} |
+<span style="color:${conf.colour};font-weight:bold;">${conf.label}</span>
+</div>
+<div class="reason">${r.reasons.join("<br>")}</div>
+</div>
+`;
+});
+
+output.innerHTML = html;
+}
+
+</script>
+
+</body>
+</html>
