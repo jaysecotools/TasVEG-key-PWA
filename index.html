@@ -12,170 +12,425 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
 <style>
-body { margin:0; font-family:Arial; background:#eef2ef; }
-header { background:#1b6133; color:white; padding:12px; }
+* {
+    box-sizing: border-box;
+}
 
-.container { padding:12px; max-width:1000px; margin:auto; }
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #eef2ef;
+}
 
-.card { background:white; padding:12px; border-radius:10px; margin-bottom:10px; }
+header {
+    background: #1b6133;
+    color: white;
+    padding: 15px 20px;
+    font-size: 1.2em;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+}
 
-label { font-weight:bold; display:block; margin-top:8px; }
+header button {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid white;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
 
-select,input,button { width:100%; padding:10px; margin-top:6px; }
+.container {
+    padding: 15px;
+    max-width: 1000px;
+    margin: auto;
+}
 
-button { background:#1b6133; color:white; border:none; cursor:pointer; }
+.card {
+    background: white;
+    padding: 18px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
 
-#map { height:260px; border-radius:10px; margin-top:10px; }
+.card h3 {
+    margin-top: 0;
+    color: #1b6133;
+    border-bottom: 2px solid #eef2ef;
+    padding-bottom: 8px;
+}
 
-.result { background:#f4faf6; border-left:5px solid #1b6133; padding:10px; margin-top:10px; }
+label {
+    font-weight: bold;
+    display: block;
+    margin-top: 12px;
+    margin-bottom: 4px;
+    color: #333;
+}
 
-.small { font-size:0.85em; opacity:0.8; }
+select, input, button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 4px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 14px;
+}
 
-.photo-preview img { width:90px; margin:5px; border-radius:6px; }
+button {
+    background: #1b6133;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.2s;
+    margin-top: 12px;
+}
+
+button:hover {
+    background: #0f4524;
+}
+
+button.secondary {
+    background: #6c757d;
+}
+
+button.secondary:hover {
+    background: #5a6268;
+}
+
+#map {
+    height: 260px;
+    border-radius: 10px;
+    margin-top: 10px;
+}
+
+#coords {
+    font-size: 0.85em;
+    color: #666;
+    margin-top: 6px;
+}
+
+.result-card {
+    background: #f4faf6;
+    border-left: 5px solid #1b6133;
+    padding: 12px;
+    margin-bottom: 12px;
+    border-radius: 6px;
+}
+
+.result-code {
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.result-score {
+    font-size: 0.9em;
+    margin: 6px 0;
+}
+
+.result-reasons {
+    font-size: 0.85em;
+    color: #555;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #d4e6dc;
+}
+
+.photo-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.photo-preview img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+.small {
+    font-size: 0.85em;
+    color: #666;
+}
 
 footer {
-text-align:center;
-font-size:0.8em;
-padding:12px;
-color:#666;
-border-top:1px solid #ddd;
-margin-top:20px;
+    text-align: center;
+    font-size: 0.8em;
+    padding: 15px;
+    color: #666;
+    border-top: 1px solid #ddd;
+    margin-top: 20px;
 }
 
-.install-box {
-background:#fff8e1;
-padding:10px;
-border-left:5px solid #f9a825;
-margin-bottom:10px;
-display:none;
+details {
+    background: white;
+    padding: 12px 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
 }
 
-details { background:white; padding:10px; border-radius:8px; margin-bottom:10px; }
-summary { font-weight:bold; cursor:pointer; color:#1b6133; }
+summary {
+    font-weight: bold;
+    cursor: pointer;
+    color: #1b6133;
+}
+
+/* MODAL STYLES */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    backdrop-filter: blur(3px);
+}
+
+.modal-content {
+    background: white;
+    margin: 20% auto;
+    padding: 20px;
+    width: 90%;
+    max-width: 350px;
+    border-radius: 15px;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-content h3 {
+    margin-top: 0;
+    color: #1b6133;
+}
+
+.modal-content p {
+    margin: 15px 0;
+}
+
+.modal-content button {
+    width: auto;
+    padding: 10px 20px;
+    margin: 5px;
+}
+
+.modal-content .install-btn {
+    background: #1b6133;
+}
+
+.modal-content .close-btn {
+    background: #6c757d;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.traffic-light {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.high-confidence { background-color: #2e7d32; }
+.moderate-confidence { background-color: #f9a825; }
+.low-confidence { background-color: #c62828; }
 </style>
 </head>
 
 <body>
 
-<header>🌿 TasVEG Field System v7.2 (Installable PWA)</header>
+<header>
+    <span>🌿 TasVEG Field System v7.2</span>
+    <button id="installHeaderBtn" style="display:none;">📱 Install App</button>
+</header>
 
 <div class="container">
 
-<!-- INSTALL PROMPT -->
-<div id="installContainer" class="install-box">
-<b>Install TasVEG App</b><br>
-<button onclick="installApp()">Install Now</button>
-</div>
-
 <!-- GUIDE -->
 <details>
-<summary>📘 User Guide</summary>
-<p>This tool identifies Tasmanian vegetation communities using field inputs and species observations.</p>
+    <summary>📘 User Guide & Key Species (click to expand)</summary>
+    <div style="margin-top:10px;">
+        <p>This tool identifies Tasmanian vegetation communities based on structural and ecological traits.</p>
+        <ul>
+            <li><strong>Structure:</strong> Forest, woodland, scrub, treeless</li>
+            <li><strong>Moisture:</strong> Dry, wet, waterlogged, coastal, alpine</li>
+            <li><strong>Dominant:</strong> Vegetation group (eucalypt, rainforest, buttongrass, melaleuca, sedges)</li>
+            <li><strong>Elevation:</strong> Low, mid, high</li>
+            <li><strong>Species:</strong> Optional comma-separated observations</li>
+        </ul>
+        <hr>
+        <h4>🌱 Key Species Reference</h4>
+        <p><strong>Forests:</strong> Eucalyptus obliqua, E. regnans, Nothofagus cunninghamii, Atherosperma moschatum</p>
+        <p><strong>Woodlands:</strong> Eucalyptus viminalis, E. ovata, Banksia marginata</p>
+        <p><strong>Scrub & Heath:</strong> Leptospermum scoparium, Melaleuca squarrosa, Epacris impressa</p>
+        <p><strong>Wetlands:</strong> Gymnoschoenus sphaerocephalus, Baumea, Juncus, Carex, Sphagnum</p>
+        <p><strong>Alpine:</strong> Richea scoparia, Podocarpus lawrencei</p>
+    </div>
 </details>
 
 <!-- MAP -->
 <div class="card">
-<h3>📍 Site Mapping</h3>
-<button onclick="getLocation()">Use GPS</button>
-<div id="coords" class="small"></div>
-<div id="map"></div>
+    <h3>📍 Site Mapping</h3>
+    <button onclick="getLocation()">📍 Use GPS</button>
+    <div id="coords" class="small">No location set</div>
+    <div id="map"></div>
+    <div class="small" style="margin-top:8px;">Click map to drop marker, drag to adjust</div>
 </div>
 
 <!-- INPUTS -->
 <div class="card">
-<h3>Field Data</h3>
+    <h3>📋 Field Data</h3>
 
-<label>Structure</label>
-<select id="structure">
-<option></option>
-<option value="forest">Forest</option>
-<option value="woodland">Woodland</option>
-<option value="scrub">Scrub</option>
-<option value="treeless">Treeless</option>
-</select>
+    <label>🌲 Structure</label>
+    <select id="structure">
+        <option value="">-- Select --</option>
+        <option value="forest">Forest</option>
+        <option value="woodland">Woodland</option>
+        <option value="scrub">Scrub</option>
+        <option value="treeless">Treeless</option>
+    </select>
 
-<label>Moisture</label>
-<select id="moisture">
-<option></option>
-<option value="dry">Dry</option>
-<option value="wet">Wet</option>
-<option value="waterlogged">Waterlogged</option>
-<option value="coastal">Coastal</option>
-<option value="alpine">Alpine</option>
-</select>
+    <label>💧 Moisture</label>
+    <select id="moisture">
+        <option value="">-- Select --</option>
+        <option value="dry">Dry</option>
+        <option value="wet">Wet</option>
+        <option value="waterlogged">Waterlogged</option>
+        <option value="coastal">Coastal</option>
+        <option value="alpine">Alpine</option>
+    </select>
 
-<label>Dominant</label>
-<select id="dominant">
-<option></option>
-<option value="eucalypt">Eucalypt</option>
-<option value="rainforest">Rainforest</option>
-<option value="buttongrass">Buttongrass</option>
-<option value="melaleuca">Melaleuca</option>
-<option value="sedges">Sedges</option>
-</select>
+    <label>🌳 Dominant</label>
+    <select id="dominant">
+        <option value="">-- Select --</option>
+        <option value="eucalypt">Eucalypt</option>
+        <option value="rainforest">Rainforest</option>
+        <option value="buttongrass">Buttongrass</option>
+        <option value="melaleuca">Tea-tree (Melaleuca)</option>
+        <option value="paperbark">Paperbark</option>
+        <option value="sedges">Sedges</option>
+        <option value="grass">Grass</option>
+    </select>
 
-<label>Elevation</label>
-<select id="elevation">
-<option></option>
-<option value="low">Low</option>
-<option value="mid">Mid</option>
-<option value="high">High</option>
-</select>
+    <label>⛰️ Elevation</label>
+    <select id="elevation">
+        <option value="">-- Select --</option>
+        <option value="low">Lowland</option>
+        <option value="mid">Mid</option>
+        <option value="high">Highland</option>
+    </select>
 
-<label>Observed Species</label>
-<input id="species">
+    <label>🔬 Observed Species</label>
+    <input id="species" placeholder="e.g. Eucalyptus obliqua, Banksia marginata">
 
-<label>📸 Photos</label>
-<input type="file" accept="image/*" capture="environment" id="photoInput" multiple>
-<div id="photoPreview" class="photo-preview"></div>
+    <label>📸 Photos</label>
+    <input type="file" accept="image/*" capture="environment" id="photoInput" multiple>
+    <div id="photoPreview" class="photo-preview"></div>
 
-<button onclick="runAnalysis()">Run Analysis</button>
-<button onclick="saveRecord()">Save Record</button>
-<button onclick="exportJSON()">Export JSON</button>
-<button onclick="exportCSV()">Export CSV</button>
-
+    <button onclick="runAnalysis()">🔍 Run Analysis</button>
+    <div class="button-group" style="margin-top:8px;">
+        <button onclick="saveRecord()" style="flex:1;">💾 Save Record</button>
+        <button onclick="exportJSON()" style="flex:1; background:#2c7da0;">📄 Export JSON</button>
+        <button onclick="exportCSV()" style="flex:1; background:#2c7da0;">📊 Export CSV</button>
+    </div>
 </div>
 
 <div id="results"></div>
 
 <footer>
-TasVEG Field System v7.2 © 2026
+    TasVEG Field System v7.2 © 2026 | Offline PWA
 </footer>
 
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- INSTALL MODAL -->
+<div id="installModal" class="modal">
+    <div class="modal-content">
+        <h3>📱 Install TasVEG</h3>
+        <p>Install this app on your device for quick access and offline use.</p>
+        <div class="button-group">
+            <button id="modalInstallBtn" class="install-btn">Install Now</button>
+            <button id="modalCloseBtn" class="close-btn">Later</button>
+        </div>
+    </div>
+</div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="storage.js"></script>
 <script src="export.js"></script>
 <script src="app.js"></script>
 
-<!-- SERVICE WORKER -->
 <script>
+// Service Worker
 if ('serviceWorker' in navigator) {
-window.addEventListener('load', () => {
-navigator.serviceWorker.register('sw.js');
-});
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js');
+    });
 }
-</script>
 
-<!-- INSTALL PROMPT LOGIC -->
-<script>
+// Install Modal Logic
 let deferredPrompt;
+const installModal = document.getElementById('installModal');
+const installHeaderBtn = document.getElementById('installHeaderBtn');
+const modalInstallBtn = document.getElementById('modalInstallBtn');
+const modalCloseBtn = document.getElementById('modalCloseBtn');
 
 window.addEventListener('beforeinstallprompt', (e) => {
-e.preventDefault();
-deferredPrompt = e;
-document.getElementById("installContainer").style.display = "block";
+    e.preventDefault();
+    deferredPrompt = e;
+    installHeaderBtn.style.display = 'block';
 });
 
-async function installApp() {
-if (!deferredPrompt) return;
+installHeaderBtn.addEventListener('click', () => {
+    installModal.style.display = 'block';
+});
 
-deferredPrompt.prompt();
-const result = await deferredPrompt.userChoice;
-deferredPrompt = null;
-}
+modalInstallBtn.addEventListener('click', async () => {
+    installModal.style.display = 'none';
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const result = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        installHeaderBtn.style.display = 'none';
+    }
+});
+
+modalCloseBtn.addEventListener('click', () => {
+    installModal.style.display = 'none';
+});
+
+window.addEventListener('click', (e) => {
+    if (e.target === installModal) {
+        installModal.style.display = 'none';
+    }
+});
 </script>
 
 </body>
