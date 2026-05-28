@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>TasVEG Field System v7.2</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1b6133">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+body { margin:0; font-family:Arial; background:#eef2ef; }
+header { background:#1b6133; color:white; padding:12px; }
+
+.container { padding:12px; max-width:1000px; margin:auto; }
+
+.card { background:white; padding:12px; border-radius:10px; margin-bottom:10px; }
+
+label { font-weight:bold; display:block; margin-top:8px; }
+
+select,input,button { width:100%; padding:10px; margin-top:6px; }
+
+button { background:#1b6133; color:white; border:none; cursor:pointer; }
+
+#map { height:260px; border-radius:10px; margin-top:10px; }
+
+.result { background:#f4faf6; border-left:5px solid #1b6133; padding:10px; margin-top:10px; }
+
+.small { font-size:0.85em; opacity:0.8; }
+
+.photo-preview img { width:90px; margin:5px; border-radius:6px; }
+
+footer {
+text-align:center;
+font-size:0.8em;
+padding:12px;
+color:#666;
+border-top:1px solid #ddd;
+margin-top:20px;
+}
+
+.install-box {
+background:#fff8e1;
+padding:10px;
+border-left:5px solid #f9a825;
+margin-bottom:10px;
+display:none;
+}
+
+details { background:white; padding:10px; border-radius:8px; margin-bottom:10px; }
+summary { font-weight:bold; cursor:pointer; color:#1b6133; }
+</style>
+</head>
+
+<body>
+
+<header>🌿 TasVEG Field System v7.2 (Installable PWA)</header>
+
+<div class="container">
+
+<!-- INSTALL PROMPT -->
+<div id="installContainer" class="install-box">
+<b>Install TasVEG App</b><br>
+<button onclick="installApp()">Install Now</button>
+</div>
+
+<!-- GUIDE -->
+<details>
+<summary>📘 User Guide</summary>
+<p>This tool identifies Tasmanian vegetation communities using field inputs and species observations.</p>
+</details>
+
+<!-- MAP -->
+<div class="card">
+<h3>📍 Site Mapping</h3>
+<button onclick="getLocation()">Use GPS</button>
+<div id="coords" class="small"></div>
+<div id="map"></div>
+</div>
+
+<!-- INPUTS -->
+<div class="card">
+<h3>Field Data</h3>
+
+<label>Structure</label>
+<select id="structure">
+<option></option>
+<option value="forest">Forest</option>
+<option value="woodland">Woodland</option>
+<option value="scrub">Scrub</option>
+<option value="treeless">Treeless</option>
+</select>
+
+<label>Moisture</label>
+<select id="moisture">
+<option></option>
+<option value="dry">Dry</option>
+<option value="wet">Wet</option>
+<option value="waterlogged">Waterlogged</option>
+<option value="coastal">Coastal</option>
+<option value="alpine">Alpine</option>
+</select>
+
+<label>Dominant</label>
+<select id="dominant">
+<option></option>
+<option value="eucalypt">Eucalypt</option>
+<option value="rainforest">Rainforest</option>
+<option value="buttongrass">Buttongrass</option>
+<option value="melaleuca">Melaleuca</option>
+<option value="sedges">Sedges</option>
+</select>
+
+<label>Elevation</label>
+<select id="elevation">
+<option></option>
+<option value="low">Low</option>
+<option value="mid">Mid</option>
+<option value="high">High</option>
+</select>
+
+<label>Observed Species</label>
+<input id="species">
+
+<label>📸 Photos</label>
+<input type="file" accept="image/*" capture="environment" id="photoInput" multiple>
+<div id="photoPreview" class="photo-preview"></div>
+
+<button onclick="runAnalysis()">Run Analysis</button>
+<button onclick="saveRecord()">Save Record</button>
+<button onclick="exportJSON()">Export JSON</button>
+<button onclick="exportCSV()">Export CSV</button>
+
+</div>
+
+<div id="results"></div>
+
+<footer>
+TasVEG Field System v7.2 © 2026
+</footer>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script src="storage.js"></script>
+<script src="export.js"></script>
+<script src="app.js"></script>
+
+<!-- SERVICE WORKER -->
+<script>
+if ('serviceWorker' in navigator) {
+window.addEventListener('load', () => {
+navigator.serviceWorker.register('sw.js');
+});
+}
+</script>
+
+<!-- INSTALL PROMPT LOGIC -->
+<script>
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+e.preventDefault();
+deferredPrompt = e;
+document.getElementById("installContainer").style.display = "block";
+});
+
+async function installApp() {
+if (!deferredPrompt) return;
+
+deferredPrompt.prompt();
+const result = await deferredPrompt.userChoice;
+deferredPrompt = null;
+}
+</script>
+
+</body>
+</html>
