@@ -1,17 +1,116 @@
-I'll rewrite your new app to match the professional look and feel of the old one, adding back the traffic light scoring, warnings, exclusions, and making the installation a proper pop-up modal.
+I need to evolve my TasVEG app with the following:
+1. Turn results into a “decision record”
 
-Here are the complete updated files:
+Right now you save:
 
-index.html
+resultsHtml
 
-```html
+That’s fragile and not machine-usable.
+
+Instead, store:
+
+results: [
+  { code, name, score, confidence }
+]
+
+This lets you:
+
+re-analyse later
+compare sites
+build reports
+track changes over time
+2. Add environmental context (this is where you align with TasVEG)
+
+This is the biggest upgrade you can make
+
+Add optional fields:
+
+substrate
+drainage
+exposure
+fire_history
+disturbance
+
+Even if users skip them — when they do use them:
+
+accuracy jumps massively
+3. Introduce “assemblage logic” (this is gold)
+
+Right now:
+
+species match = +6 each
+
+Upgrade to:
+
+if (rainforest assemblage detected):
++15
+
+Example:
+
+Nothofagus + Atherosperma + Anodopetalum = rainforest lock
+
+This mimics how experienced ecologists think.
+
+4. Strengthen exclusions (your hidden superpower)
+
+Your system already has this — but it’s undercooked.
+
+Push it harder:
+
+if (moisture === "dry" && dominant === "rainforest"):
+huge penalty
+
+if (coastal && alpine):
+hard exclusion
+
+This is exactly how field keys work:
+
+not just “what fits”, but “what cannot be”.
+
+5. Use location (you’re sitting on a goldmine)
+
+You already capture GPS.
+
+You could:
+
+pre-filter communities by region
+weight coastal proximity
+infer elevation band
+even link to TasVEG layers later
+
+That’s something the PDF cannot do.
+
+6. Turn it into a workflow (this is next-level)
+
+Right now:
+
+enter → analyse → save
+
+You could evolve it into:
+
+Navigate to site
+Drop marker
+Capture photos
+Enter structure
+Run analysis
+Confirm / override community
+Save record
+Export report
+
+That becomes:
+
+industry-ready
+audit-friendly
+actually useful for councils / NRM bodies
+
+Here's my index.html code:
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>TasVEG Field System v7.2</title>
+<title>TasVEG Field System v7.2.1</title>
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1b6133">
@@ -372,7 +471,7 @@ summary {
 <div id="results"></div>
 
 <footer>
-    TasVEG Field System v7.2 © 2026 | Offline PWA
+    TasVEG Field System v7.2.1 © 2026 | Offline PWA
 </footer>
 
 </div>
@@ -442,11 +541,8 @@ window.addEventListener('click', (e) => {
 
 </body>
 </html>
-```
 
-app.js
-
-```javascript
+Here's the app.js code:
 let map = L.map('map').setView([-42, 147], 6);
 let marker;
 let currentLatLng = null;
@@ -770,188 +866,5 @@ async function saveRecord() {
     await saveToDB(record);
     alert("✅ Record saved offline!");
 }
-```
 
-export.js
-
-```javascript
-async function exportJSON() {
-    const data = await getAllRecords();
-    download(JSON.stringify(data, null, 2), "tasveg-records.json", "application/json");
-}
-
-async function exportCSV() {
-    const data = await getAllRecords();
-
-    let csv = "id,timestamp,latitude,longitude,structure,moisture,dominant,elevation,species\n";
-
-    data.forEach(r => {
-        const lat = r.location ? r.location.lat : "";
-        const lon = r.location ? r.location.lon : "";
-        csv += `${r.id},${r.timestamp},${lat},${lon},${r.inputs.structure},${r.inputs.moisture},${r.inputs.dominant},${r.inputs.elevation},"${r.inputs.species}"\n`;
-    });
-
-    download(csv, "tasveg-records.csv", "text/csv");
-}
-
-function download(content, fileName, contentType) {
-    const blob = new Blob([content], { type: contentType });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(a.href);
-}
-```
-
-storage.js
-
-```javascript
-let db;
-const req = indexedDB.open("tasvegDB", 1);
-
-req.onupgradeneeded = e => {
-    db = e.target.result;
-    if (!db.objectStoreNames.contains("records")) {
-        db.createObjectStore("records", { keyPath: "id" });
-    }
-};
-
-req.onsuccess = e => {
-    db = e.target.result;
-};
-
-req.onerror = e => {
-    console.error("IndexedDB error:", e.target.error);
-};
-
-function saveToDB(record) {
-    return new Promise((resolve, reject) => {
-        if (!db) {
-            reject("Database not ready");
-            return;
-        }
-        const tx = db.transaction("records", "readwrite");
-        const store = tx.objectStore("records");
-        const request = store.put(record);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-        tx.oncomplete = () => resolve();
-    });
-}
-
-function getAllRecords() {
-    return new Promise((resolve, reject) => {
-        if (!db) {
-            reject("Database not ready");
-            return;
-        }
-        const tx = db.transaction("records", "readonly");
-        const store = tx.objectStore("records");
-        const request = store.getAll();
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-}
-```
-
-sw.js
-
-```javascript
-const CACHE = "tasveg-v7.2";
-
-const ASSETS = [
-    "./",
-    "./index.html",
-    "./app.js",
-    "./storage.js",
-    "./export.js",
-    "./manifest.json",
-    "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
-    "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-];
-
-self.addEventListener("install", e => {
-    self.skipWaiting();
-    e.waitUntil(
-        caches.open(CACHE).then(cache => cache.addAll(ASSETS))
-    );
-});
-
-self.addEventListener("activate", e => {
-    e.waitUntil(self.clients.claim());
-});
-
-self.addEventListener("fetch", e => {
-    e.respondWith(
-        caches.match(e.request).then(res => {
-            return res || fetch(e.request).catch(() => {
-                return caches.match("./index.html");
-            });
-        })
-    );
-});
-```
-
-manifest.json
-
-```json
-{
-  "name": "TasVEG Field System",
-  "short_name": "TasVEG",
-  "start_url": "./index.html",
-  "scope": "./",
-  "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#eef2ef",
-  "theme_color": "#1b6133",
-  "description": "Offline Tasmanian vegetation field assessment tool",
-  "icons": [
-    {
-      "src": "icons/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "icons/icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    },
-    {
-      "src": "icons/icon-192x192-maskable.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "icons/icon-512x512-maskable.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "icons/icon-180x180.png",
-      "sizes": "180x180",
-      "type": "image/png"
-    },
-    {
-      "src": "icons/icon-152x152.png",
-      "sizes": "152x152",
-      "type": "image/png"
-    }
-  ]
-}
-```
-
-Key Improvements Made:
-
-1. Traffic Light Scoring - Red/Yellow/Green confidence indicators with colored dots
-2. Exclusion Rules - Proper penalties for mismatches (treeless/forest, buttongrass, elevation, paperbark)
-3. Professional Installation - Modal popup instead of inline banner, with header button
-4. Complete Dataset - All 15 vegetation communities from the old version
-5. Detailed Explanations - Shows exactly why each community was scored that way
-6. Better UI Layout - Card-based design, improved button grouping
-7. Mobile Optimized - Responsive design that works on phones
-8. Traffic Light Legend - Visual confidence indicators in results
-
-The app now has the professional feel of your original single-file version with all the PWA features working correctly!
+I also have export.js, manifest.json, storage.js, and sw.js files, as well as an icons folder. Let me know if you need any of these to continue.
