@@ -1,6 +1,5 @@
 // version.js - Version checking and update management
 
-const APP_VERSION = "8.0.1";
 const VERSION_CHECK_INTERVAL = 3600000; // Check every hour (in milliseconds)
 let updateNotificationShown = false;
 let updateCheckInterval = null;
