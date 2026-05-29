@@ -28,7 +28,7 @@ async function exportCSV() {
         'top_code', 'top_name', 'top_score', 'top_confidence',
         'second_code', 'second_name', 'second_score', 'second_confidence',
         'third_code', 'third_name', 'third_score', 'third_confidence',
-        'photos_count'
+        'photos_count', 'version'
     ];
     
     const rows = records.map(record => {
@@ -60,7 +60,8 @@ async function exportCSV() {
             results[2]?.name || '',
             results[2]?.score || '',
             results[2]?.confidence || '',
-            (record.photos || []).length
+            (record.photos || []).length,
+            record.version || ''
         ];
     });
     
@@ -81,9 +82,6 @@ async function exportCSV() {
     URL.revokeObjectURL(url);
 }
 
-function exportDecisionRecord() {
-    // Already defined in app.js - kept for compatibility
-    if (typeof window.exportDecisionRecord === 'function') {
-        window.exportDecisionRecord();
-    }
-}
+// Make functions available globally
+window.exportJSON = exportJSON;
+window.exportCSV = exportCSV;
