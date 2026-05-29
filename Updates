@@ -1,38 +1,624 @@
-🌿 TasVEG Field Assessment Report
-Generated: 29/05/2026, 3:26:51 pm
-📍 Site Information
-Location	-41.050877, 145.601807
-Date/Time	2026-05-29T05:26:51.146Z
-Photos	0 captured
-🌲 Field Observations
-Structure	forest
-Moisture	wet
-Dominant	eucalypt
-Elevation	low
-Species	obliqua, antarctica, viminalis
-🌍 Environmental Context
-Substrate	dolerite
-Drainage	moderate
-Exposure	sheltered
-Fire History	old
-Disturbance	light
-📊 Analysis Results
-Decision Record - Structured assessment based on field data
+// app.js - Enhanced with decision records, environmental context, assemblage logic
+// WITHOUT datasets - add your communities and assemblageRules arrays back in
 
-DVF — Eucalyptus viminalis Furneaux Forest and Woodland
-Score: 55 | 🟢 High confidence
-DSC — Eucalyptus amygdalina–Eucalyptus obliqua Damp Sclerophyll Forest
-Score: 53 | 🟢 High confidence
-WOB — Eucalyptus obliqua Forest with Broad-leaf Shrubs
-Score: 53 | 🟢 High confidence
-WRE — Eucalyptus regnans Forest
-Score: 53 | 🟢 High confidence
-WVI — Eucalyptus viminalis Wet Forest
-Score: 53 | 🟢 High confidence
-📝 Assessment Notes
-This assessment was conducted using the TasVEG Field System v8.0.
+let map = L.map('map').setView([-42, 147], 6);
+let marker;
+let currentLatLng = null;
+let photos = [];
+let currentResults = []; // Store structured results for decision record
 
-Primary recommendation: DVF - Eucalyptus viminalis Furneaux Forest and Woodland with High confidence.
+// ===== DEBUG MODE =====
+const DEBUG_MODE = false;  // Set to true to see console logs
 
-TasVEG Field System - Professional Edition
-Report generated offline
+// ===== WEIGHTS - REDUCED FOR REALISTIC SCORES =====
+const WEIGHTS = {
+    structure: 2,
+    moisture: 2,
+    dominant: 2,
+    elevation: 1,
+    substrate: 1,
+    drainage: 1,
+    exposure: 0.5,
+    fire_history: 1,
+    disturbance: 0.5
+};
+
+const SPECIES_WEIGHT = 2;  // Reduced from 6 to prevent score inflation
+const ASSEMBLAGE_BONUS_MAX = 20;
+
+// ===== MAP =====
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+}).addTo(map);
+
+// CLICK TO DROP MARKER
+map.on('click', e => {
+    setMarker(e.latlng.lat, e.latlng.lng);
+});
+
+function setMarker(lat, lon) {
+    currentLatLng = { lat, lon };
+
+    if (marker) map.removeLayer(marker);
+    marker = L.marker([lat, lon], { draggable: true }).addTo(map);
+
+    marker.on('dragend', e => {
+        const pos = e.target.getLatLng();
+        currentLatLng = { lat: pos.lat, lon: pos.lng };
+        document.getElementById("coords").innerText = pos.lat.toFixed(5) + ", " + pos.lng.toFixed(5);
+        inferElevationBand(pos.lat);
+    });
+
+    document.getElementById("coords").innerText = lat.toFixed(5) + ", " + lon.toFixed(5);
+    map.setView([lat, lon], 14);
+    inferElevationBand(lat);
+}
+
+function inferElevationBand(latitude) {
+    const absLat = Math.abs(latitude);
+    if (absLat > 42.5) {
+        document.getElementById("elevationHint").innerHTML = "📍 High elevation likely";
+    } else if (absLat > 41.5) {
+        document.getElementById("elevationHint").innerHTML = "📍 Mid elevation possible";
+    } else {
+        document.getElementById("elevationHint").innerHTML = "📍 Lowland area";
+    }
+}
+
+// GPS
+function getLocation() {
+    navigator.geolocation.getCurrentPosition(pos => {
+        setMarker(pos.coords.latitude, pos.coords.longitude);
+    });
+}
+
+// PHOTO COMPRESSION
+document.getElementById("photoInput").addEventListener("change", async e => {
+    const files = [...e.target.files];
+
+    for (let file of files) {
+        const compressed = await compress(file, 0.6);
+        photos.push(compressed);
+
+        let img = document.createElement("img");
+        img.src = compressed;
+        document.getElementById("photoPreview").appendChild(img);
+    }
+});
+
+function compress(file, quality) {
+    return new Promise(resolve => {
+        const img = new Image();
+        img.src = URL.createObjectURL(file);
+
+        img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            const scale = 800 / img.width;
+            canvas.width = 800;
+            canvas.height = img.height * scale;
+
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+    });
+}
+
+// ===== INSERT YOUR communities ARRAY HERE =====
+// (all 163 TASVEG communities)
+const communities = [
+    // Your communities go here...
+];
+
+// ===== INSERT YOUR assemblageRules ARRAY HERE =====
+// (enhanced assemblage detection rules)
+const assemblageRules = [
+    // Your assemblageRules go here...
+];
+
+// ===== ASSEMBLAGE DETECTION =====
+function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
+    if (!speciesList || speciesList.length === 0) return null;
+    
+    let assemblageBonuses = [];
+    
+    for (let rule of assemblageRules) {
+        // 1. APPLY EXCLUSIONS
+        let isExcluded = false;
+        
+        if (rule.excludeMoisture && rule.excludeMoisture.length > 0) {
+            if (inputs.moisture && rule.excludeMoisture.includes(inputs.moisture)) {
+                isExcluded = true;
+            }
+        }
+        
+        if (!isExcluded && rule.excludeElevation && rule.excludeElevation.length > 0) {
+            if (inputs.elevation && rule.excludeElevation.includes(inputs.elevation)) {
+                isExcluded = true;
+            }
+        }
+        
+        if (!isExcluded && rule.excludeStructure && rule.excludeStructure.length > 0) {
+            if (inputs.structure && rule.excludeStructure.includes(inputs.structure)) {
+                isExcluded = true;
+            }
+        }
+        
+        if (!isExcluded && rule.excludeDominant && rule.excludeDominant.length > 0) {
+            if (inputs.dominant && rule.excludeDominant.includes(inputs.dominant)) {
+                isExcluded = true;
+            }
+        }
+        
+        if (isExcluded) continue;
+        
+        // 2. APPLY REQUIRED CONDITIONS
+        let requirementsMet = true;
+        
+        if (rule.requireMoisture && rule.requireMoisture.length > 0) {
+            if (!inputs.moisture || !rule.requireMoisture.includes(inputs.moisture)) {
+                requirementsMet = false;
+            }
+        }
+        
+        if (requirementsMet && rule.requireElevation && rule.requireElevation.length > 0) {
+            if (!inputs.elevation || !rule.requireElevation.includes(inputs.elevation)) {
+                requirementsMet = false;
+            }
+        }
+        
+        if (requirementsMet && rule.requireStructure && rule.requireStructure.length > 0) {
+            if (!inputs.structure || !rule.requireStructure.includes(inputs.structure)) {
+                requirementsMet = false;
+            }
+        }
+        
+        if (!requirementsMet) continue;
+        
+        // 3. MATCH SPECIES
+        let matches = 0;
+        let matchedSpecies = [];
+        
+        for (let userSp of speciesList) {
+            const userSpLower = userSp.toLowerCase().trim();
+            
+            for (let ruleSp of rule.species) {
+                const ruleSpLower = ruleSp.toLowerCase();
+                
+                let isMatch = false;
+                if (ruleSpLower.endsWith(' spp.')) {
+                    const genus = ruleSpLower.replace(' spp.', '');
+                    if (userSpLower.includes(genus)) {
+                        isMatch = true;
+                    }
+                } else {
+                    if (userSpLower.includes(ruleSpLower) || ruleSpLower.includes(userSpLower)) {
+                        isMatch = true;
+                    }
+                }
+                
+                if (isMatch && !matchedSpecies.includes(ruleSp)) {
+                    matches++;
+                    matchedSpecies.push(ruleSp);
+                    break;
+                }
+            }
+        }
+        
+        // 4. CALCULATE BONUS
+        if (matches >= rule.minMatches) {
+            let bonus = rule.bonus;
+            
+            if (rule.bonusPerExtraMatch && matches > rule.minMatches) {
+                bonus += (matches - rule.minMatches) * rule.bonusPerExtraMatch;
+            }
+            
+            let traitBonus = 0;
+            if (rule.traitMatch) {
+                for (let [traitKey, expectedValue] of Object.entries(rule.traitMatch)) {
+                    if (inputs[traitKey] === expectedValue) {
+                        traitBonus += 3;
+                    }
+                    if (environmentalContext[traitKey] === expectedValue) {
+                        traitBonus += 2;
+                    }
+                }
+            }
+            
+            bonus += traitBonus;
+            
+            const maxBonus = rule.maxBonus || 20;
+            bonus = Math.min(bonus, maxBonus);
+            
+            assemblageBonuses.push({
+                name: rule.name,
+                description: rule.description || rule.name,
+                bonus: bonus,
+                matches: matches,
+                requiredMatches: rule.minMatches,
+                matchedSpecies: matchedSpecies,
+                traitBonus: traitBonus
+            });
+        }
+    }
+    
+    if (assemblageBonuses.length === 0) return null;
+    
+    assemblageBonuses.sort((a, b) => {
+        if (a.bonus !== b.bonus) return b.bonus - a.bonus;
+        return b.matches - a.matches;
+    });
+    
+    const best = assemblageBonuses[0];
+    
+    if (assemblageBonuses.length > 1) {
+        best.alternatives = assemblageBonuses.slice(1, 4);
+    }
+    
+    if (DEBUG_MODE) {
+        console.log(`🏆 Assemblage detected: ${best.name} (bonus: +${best.bonus}, matches: ${best.matches}/${best.requiredMatches})`);
+    }
+    
+    return best;
+}
+
+// ===== HARD EXCLUSIONS =====
+function applyHardExclusions(comm, inputs, environmentalContext) {
+    let penalty = 0;
+    let reasons = [];
+    let isHardExcluded = false;
+
+    if (inputs.structure === "treeless" && comm.traits.structure === "forest") {
+        penalty -= 8;
+        reasons.push("❌ EXCLUSION: Treeless structure cannot be forest");
+        isHardExcluded = true;
+    }
+    
+    if (inputs.structure === "forest" && comm.traits.structure === "treeless") {
+        penalty -= 6;
+        reasons.push("❌ EXCLUSION: Forest structure cannot be treeless community");
+        isHardExcluded = true;
+    }
+
+    if (inputs.moisture === "dry" && comm.traits.dominant === "rainforest") {
+        penalty -= 12;
+        reasons.push("❌ HARD EXCLUSION: Rainforest cannot occur in dry conditions");
+        isHardExcluded = true;
+    }
+    
+    if (inputs.moisture === "alpine" && comm.traits.dominant === "rainforest") {
+        penalty -= 12;
+        reasons.push("❌ HARD EXCLUSION: Rainforest does not occur in alpine zone");
+        isHardExcluded = true;
+    }
+    
+    if (inputs.moisture === "coastal" && comm.traits.moisture === "alpine") {
+        penalty -= 12;
+        reasons.push("❌ HARD EXCLUSION: Coastal and alpine are mutually exclusive");
+        isHardExcluded = true;
+    }
+    
+    if (inputs.moisture === "alpine" && comm.traits.moisture === "coastal") {
+        penalty -= 12;
+        reasons.push("❌ HARD EXCLUSION: Alpine and coastal are mutually exclusive");
+        isHardExcluded = true;
+    }
+
+    if (inputs.dominant === "buttongrass" && !comm.code.startsWith("MB")) {
+        penalty -= 6;
+        reasons.push("❌ EXCLUSION: Buttongrass dominant only matches Buttongrass Moorland");
+        isHardExcluded = true;
+    }
+    
+    if (inputs.dominant === "rainforest" && comm.traits.dominant !== "rainforest" && comm.code !== "ROS" && comm.code !== "SRF") {
+        penalty -= 8;
+        reasons.push("❌ EXCLUSION: Rainforest dominant only matches Rainforest communities");
+        isHardExcluded = true;
+    }
+
+    if (inputs.elevation === "high" && comm.traits.elevation === "low") {
+        penalty -= 5;
+        reasons.push("❌ EXCLUSION: Elevation mismatch (high vs low)");
+        isHardExcluded = true;
+    }
+    
+    if (inputs.elevation === "low" && comm.traits.elevation === "high") {
+        penalty -= 5;
+        reasons.push("❌ EXCLUSION: Elevation mismatch (low vs high)");
+        isHardExcluded = true;
+    }
+
+    if (inputs.dominant === "paperbark" && comm.traits.dominant !== "paperbark") {
+        penalty -= 5;
+        reasons.push("❌ EXCLUSION: Paperbark indicates Swamp Paperbark Forest");
+        isHardExcluded = true;
+    }
+
+    if (environmentalContext.substrate === "limestone" && comm.code && comm.code.startsWith("MB")) {
+        penalty -= 6;
+        reasons.push("❌ EXCLUSION: Buttongrass rarely occurs on limestone");
+    }
+    
+    if (environmentalContext.drainage === "well_drained" && comm.traits.moisture === "waterlogged") {
+        penalty -= 6;
+        reasons.push("❌ EXCLUSION: Well-drained site cannot be waterlogged community");
+        isHardExcluded = true;
+    }
+    
+    if (environmentalContext.drainage === "poor" && (comm.traits.moisture === "dry" || comm.traits.moisture === "coastal")) {
+        penalty -= 4;
+        reasons.push("⚠ Poor drainage conflicts with dry/coastal community");
+    }
+    
+    if (environmentalContext.fire_history === "recent" && (comm.traits.dominant === "rainforest" || comm.code === "RKP" || comm.code === "RPP")) {
+        penalty -= 10;
+        reasons.push("❌ EXCLUSION: Rainforest cannot survive recent fire");
+        isHardExcluded = true;
+    }
+    
+    if (environmentalContext.disturbance === "cleared" && comm.traits.structure === "forest") {
+        penalty -= 6;
+        reasons.push("⚠ Cleared site unlikely to be intact forest");
+    }
+
+    return { penalty, reasons, isHardExcluded };
+}
+
+// ===== SCORE COMMUNITY =====
+function scoreCommunity(comm, inputs, environmentalContext) {
+    let score = 0;
+    let reasons = [];
+
+    // Trait matching
+    for (let key in comm.traits) {
+        let weight = WEIGHTS[key] || 1;
+
+        if (inputs[key] === comm.traits[key]) {
+            score += weight;
+            reasons.push(`✓ ${key}: ${comm.traits[key]} (+${weight})`);
+        } else if (inputs[key]) {
+            let penalty = -Math.round(weight / 2);
+            score += penalty;
+            reasons.push(`⚠ ${key}: expected "${comm.traits[key]}" got "${inputs[key]}" (${penalty})`);
+        }
+    }
+
+    // Species matching
+    if (inputs.species && inputs.species.length > 0 && comm.species) {
+        inputs.species.forEach(obs => {
+            comm.species.forEach(sp => {
+                if (sp.toLowerCase().includes(obs.toLowerCase()) || 
+                    obs.toLowerCase().includes(sp.toLowerCase())) {
+                    score += SPECIES_WEIGHT;
+                    reasons.push(`🌿 Species match: ${sp} (+${SPECIES_WEIGHT})`);
+                }
+            });
+        });
+    }
+
+    // Assemblage detection
+    let assemblage = detectAssemblage(inputs.species || [], inputs, environmentalContext);
+    if (assemblage && comm.traits.assemblage === assemblage.name) {
+        score += assemblage.bonus;
+        reasons.push(`🏆 ASSEMBLAGE LOCK: ${assemblage.name} detected! (+${assemblage.bonus})`);
+    } else if (assemblage && assemblage.name === "rainforest" && comm.traits.assemblage === "rainforest_edge") {
+        let bonus = Math.round(assemblage.bonus * 0.6);
+        score += bonus;
+        reasons.push(`🌿 Rainforest assemblage suggests rainforest-edge community (+${bonus})`);
+    }
+
+    // Exclusions
+    let exclusion = applyHardExclusions(comm, inputs, environmentalContext);
+    score += exclusion.penalty;
+    reasons = reasons.concat(exclusion.reasons);
+    
+    if (exclusion.isHardExcluded) {
+        score = -999;
+    }
+
+    return { score, reasons, isHardExcluded: exclusion.isHardExcluded };
+}
+
+// ===== NORMALIZE SCORE & CONFIDENCE =====
+function normalizeScore(rawScore, maxPossibleScore = 35) {
+    let cappedScore = Math.min(rawScore, maxPossibleScore);
+    let percentage = Math.round((cappedScore / maxPossibleScore) * 100);
+    return { score: cappedScore, percentage: percentage };
+}
+
+function getConfidence(rawScore) {
+    const { score, percentage } = normalizeScore(rawScore);
+    
+    if (percentage >= 70) return { label: "High confidence", colour: "#2e7d32", icon: "🟢", score: score, percentage: percentage };
+    if (percentage >= 50) return { label: "Moderate confidence", colour: "#f9a825", icon: "🟡", score: score, percentage: percentage };
+    if (percentage >= 30) return { label: "Low confidence", colour: "#ff6b35", icon: "🟠", score: score, percentage: percentage };
+    return { label: "Very low confidence", colour: "#c62828", icon: "🔴", score: score, percentage: percentage };
+}
+
+// ===== GET ENVIRONMENTAL CONTEXT =====
+function getEnvironmentalContext() {
+    return {
+        substrate: document.getElementById("substrate")?.value || "",
+        drainage: document.getElementById("drainage")?.value || "",
+        exposure: document.getElementById("exposure")?.value || "",
+        fire_history: document.getElementById("fire_history")?.value || "",
+        disturbance: document.getElementById("disturbance")?.value || ""
+    };
+}
+
+// ===== RUN ANALYSIS =====
+function runAnalysis() {
+    const structureEl = document.getElementById("structure");
+    const moistureEl = document.getElementById("moisture");
+    const dominantEl = document.getElementById("dominant");
+    const elevationEl = document.getElementById("elevation");
+    const speciesEl = document.getElementById("species");
+
+    const inputs = {
+        structure: structureEl.value,
+        moisture: moistureEl.value,
+        dominant: dominantEl.value,
+        elevation: elevationEl.value,
+        species: speciesEl.value.split(",").map(s => s.trim()).filter(Boolean)
+    };
+    
+    const environmentalContext = getEnvironmentalContext();
+
+    let results = communities.map(c => {
+        let r = scoreCommunity(c, inputs, environmentalContext);
+        return { 
+            code: c.code, 
+            name: c.name, 
+            rawScore: r.score,
+            score: r.score,
+            reasons: r.reasons,
+            isHardExcluded: r.isHardExcluded
+        };
+    })
+    .filter(r => !r.isHardExcluded)
+    .sort((a, b) => b.rawScore - a.rawScore);
+    
+    // Store structured results for decision record
+    currentResults = results.map(r => {
+        const conf = getConfidence(r.rawScore);
+        return {
+            code: r.code,
+            name: r.name,
+            score: conf.score,
+            percentage: conf.percentage,
+            confidence: conf.label
+        };
+    });
+
+    let html = `
+        <div class="card">
+            <h3>🌿 Decision Record</h3>
+            <p class="small">Structured analysis results - ${new Date().toLocaleString()}</p>
+    `;
+    
+    if (results.length === 0) {
+        html += "<p>No matching communities found after applying exclusions.</p>";
+    } else {
+        html += `<div class="button-group" style="margin-bottom:12px;">
+                    <button onclick="exportDecisionRecord()" style="background:#2c7da0;">📋 Export Decision Record</button>
+                    <button onclick="copyDecisionSummary()" style="background:#2c7da0;">📋 Copy Summary</button>
+                </div>`;
+        
+        results.slice(0, 7).forEach(r => {
+            const conf = getConfidence(r.rawScore);
+
+            html += `
+                <div class="result-card">
+                    <div class="result-code">
+                        <span class="traffic-light ${conf.label.toLowerCase().replace(' ', '-')}"></span>
+                        <strong>${r.code} — ${r.name}</strong>
+                        <span style="float:right; font-size:0.8em;">Confidence: ${conf.percentage}%</span>
+                    </div>
+                    <div class="result-score">
+                        Score: ${conf.score} | 
+                        <span style="color:${conf.colour}; font-weight:bold;">${conf.icon} ${conf.label}</span>
+                    </div>
+                    <div class="result-reasons">
+                        ${r.reasons.length ? r.reasons.slice(0, 8).join("<br>") : "No specific matches"}
+                        ${r.reasons.length > 8 ? "<br><em>+ more factors considered...</em>" : ""}
+                    </div>
+                </div>
+            `;
+        });
+        
+        // Add assemblage summary
+        const assemblage = detectAssemblage(inputs.species || [], inputs, environmentalContext);
+        if (assemblage) {
+            html += `
+                <div style="background:#e8f5e9; padding:10px; border-radius:8px; margin-top:10px;">
+                    <strong>🏆 Assemblage Detected:</strong> ${assemblage.name.toUpperCase()} 
+                    (bonus: +${assemblage.bonus})
+                </div>
+            `;
+        }
+    }
+    
+    html += `</div>`;
+    document.getElementById("results").innerHTML = html;
+}
+
+// ===== EXPORT DECISION RECORD =====
+function exportDecisionRecord() {
+    if (!currentResults.length) {
+        alert("No analysis results to export. Run analysis first.");
+        return;
+    }
+    
+    const record = {
+        type: "tasveg_decision_record",
+        timestamp: new Date().toISOString(),
+        location: currentLatLng,
+        environmental_context: getEnvironmentalContext(),
+        inputs: {
+            structure: document.getElementById("structure").value,
+            moisture: document.getElementById("moisture").value,
+            dominant: document.getElementById("dominant").value,
+            elevation: document.getElementById("elevation").value,
+            species: document.getElementById("species").value
+        },
+        results: currentResults,
+        photos_count: photos.length,
+        version: "8.0"
+    };
+    
+    const dataStr = JSON.stringify(record, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    const exportFileDefaultName = `tasveg_decision_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.json`;
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+}
+
+function copyDecisionSummary() {
+    if (!currentResults.length) {
+        alert("No results to copy.");
+        return;
+    }
+    
+    let summary = `TasVEG Decision Record\n${new Date().toLocaleString()}\n`;
+    summary += `Location: ${currentLatLng ? currentLatLng.lat.toFixed(5) + ", " + currentLatLng.lon.toFixed(5) : "Not set"}\n`;
+    summary += `\nTop Results:\n`;
+    
+    currentResults.slice(0, 3).forEach((r, i) => {
+        summary += `${i+1}. ${r.code} - ${r.name} (Score: ${r.score}, ${r.confidence})\n`;
+    });
+    
+    navigator.clipboard.writeText(summary);
+    alert("Decision summary copied to clipboard!");
+}
+
+// ===== SAVE RECORD =====
+async function saveRecord() {
+    if (!currentLatLng) {
+        alert("Please set a location on the map first (click or use GPS).");
+        return;
+    }
+
+    const record = {
+        id: Date.now(),
+        timestamp: new Date().toISOString(),
+        location: currentLatLng,
+        environmental_context: getEnvironmentalContext(),
+        inputs: {
+            structure: document.getElementById("structure").value,
+            moisture: document.getElementById("moisture").value,
+            dominant: document.getElementById("dominant").value,
+            elevation: document.getElementById("elevation").value,
+            species: document.getElementById("species").value
+        },
+        results: currentResults,
+        photos: photos,
+        version: "8.0"
+    };
+
+    await saveToDB(record);
+    alert("✅ Record saved offline as decision record!");
+}
