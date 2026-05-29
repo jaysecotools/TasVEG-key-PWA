@@ -1,4 +1,5 @@
 // app.js - Enhanced with decision records, environmental context, assemblage logic
+// WITHOUT datasets - add your communities and assemblageRules arrays back in
 
 let map = L.map('map').setView([-42, 147], 6);
 let marker;
@@ -6,7 +7,26 @@ let currentLatLng = null;
 let photos = [];
 let currentResults = []; // Store structured results for decision record
 
-// MAP
+// ===== DEBUG MODE =====
+const DEBUG_MODE = false;  // Set to true to see console logs
+
+// ===== WEIGHTS - REDUCED FOR REALISTIC SCORES =====
+const WEIGHTS = {
+    structure: 2,
+    moisture: 2,
+    dominant: 2,
+    elevation: 1,
+    substrate: 1,
+    drainage: 1,
+    exposure: 0.5,
+    fire_history: 1,
+    disturbance: 0.5
+};
+
+const SPECIES_WEIGHT = 2;  // Reduced from 6 to prevent score inflation
+const ASSEMBLAGE_BONUS_MAX = 20;
+
+// ===== MAP =====
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap'
 }).addTo(map);
@@ -26,20 +46,15 @@ function setMarker(lat, lon) {
         const pos = e.target.getLatLng();
         currentLatLng = { lat: pos.lat, lon: pos.lng };
         document.getElementById("coords").innerText = pos.lat.toFixed(5) + ", " + pos.lng.toFixed(5);
-        // Update elevation band inference
         inferElevationBand(pos.lat);
     });
 
     document.getElementById("coords").innerText = lat.toFixed(5) + ", " + lon.toFixed(5);
     map.setView([lat, lon], 14);
-    
-    // Infer elevation from latitude (simple approximation)
     inferElevationBand(lat);
 }
 
 function inferElevationBand(latitude) {
-    // Simple elevation inference based on latitude (higher latitudes = colder = higher elevation likely)
-    // In real implementation, you'd use a DEM API
     const absLat = Math.abs(latitude);
     if (absLat > 42.5) {
         document.getElementById("elevationHint").innerHTML = "📍 High elevation likely";
@@ -1549,52 +1564,34 @@ const assemblageRules = [
     }
 ];
 
-const WEIGHTS = {
-    structure: 4,
-    moisture: 3,
-    dominant: 4,
-    elevation: 2,
-    substrate: 2,
-    drainage: 2,
-    exposure: 1,
-    fire_history: 2,
-    disturbance: 1
-};
-
-const SPECIES_WEIGHT = 6;
-const ASSEMBLAGE_BONUS_MAX = 20;
-
+// ===== ASSEMBLAGE DETECTION =====
 function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
     if (!speciesList || speciesList.length === 0) return null;
     
     let assemblageBonuses = [];
     
     for (let rule of assemblageRules) {
-        // ===== 1. APPLY EXCLUSIONS =====
+        // 1. APPLY EXCLUSIONS
         let isExcluded = false;
         
-        // Check moisture exclusions
         if (rule.excludeMoisture && rule.excludeMoisture.length > 0) {
             if (inputs.moisture && rule.excludeMoisture.includes(inputs.moisture)) {
                 isExcluded = true;
             }
         }
         
-        // Check elevation exclusions
         if (!isExcluded && rule.excludeElevation && rule.excludeElevation.length > 0) {
             if (inputs.elevation && rule.excludeElevation.includes(inputs.elevation)) {
                 isExcluded = true;
             }
         }
         
-        // Check structure exclusions
         if (!isExcluded && rule.excludeStructure && rule.excludeStructure.length > 0) {
             if (inputs.structure && rule.excludeStructure.includes(inputs.structure)) {
                 isExcluded = true;
             }
         }
         
-        // Check dominant exclusions
         if (!isExcluded && rule.excludeDominant && rule.excludeDominant.length > 0) {
             if (inputs.dominant && rule.excludeDominant.includes(inputs.dominant)) {
                 isExcluded = true;
@@ -1603,24 +1600,21 @@ function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
         
         if (isExcluded) continue;
         
-        // ===== 2. APPLY REQUIRED CONDITIONS =====
+        // 2. APPLY REQUIRED CONDITIONS
         let requirementsMet = true;
         
-        // Check required moisture
         if (rule.requireMoisture && rule.requireMoisture.length > 0) {
             if (!inputs.moisture || !rule.requireMoisture.includes(inputs.moisture)) {
                 requirementsMet = false;
             }
         }
         
-        // Check required elevation
         if (requirementsMet && rule.requireElevation && rule.requireElevation.length > 0) {
             if (!inputs.elevation || !rule.requireElevation.includes(inputs.elevation)) {
                 requirementsMet = false;
             }
         }
         
-        // Check required structure
         if (requirementsMet && rule.requireStructure && rule.requireStructure.length > 0) {
             if (!inputs.structure || !rule.requireStructure.includes(inputs.structure)) {
                 requirementsMet = false;
@@ -1629,7 +1623,7 @@ function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
         
         if (!requirementsMet) continue;
         
-        // ===== 3. MATCH SPECIES =====
+        // 3. MATCH SPECIES
         let matches = 0;
         let matchedSpecies = [];
         
@@ -1639,7 +1633,6 @@ function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
             for (let ruleSp of rule.species) {
                 const ruleSpLower = ruleSp.toLowerCase();
                 
-                // Handle wildcard matching for genus-level rules (e.g., "Baumea spp.")
                 let isMatch = false;
                 if (ruleSpLower.endsWith(' spp.')) {
                     const genus = ruleSpLower.replace(' spp.', '');
@@ -1647,7 +1640,6 @@ function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
                         isMatch = true;
                     }
                 } else {
-                    // Standard matching
                     if (userSpLower.includes(ruleSpLower) || ruleSpLower.includes(userSpLower)) {
                         isMatch = true;
                     }
@@ -1656,38 +1648,34 @@ function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
                 if (isMatch && !matchedSpecies.includes(ruleSp)) {
                     matches++;
                     matchedSpecies.push(ruleSp);
-                    break; // Count each user species once per rule
+                    break;
                 }
             }
         }
         
-        // ===== 4. CALCULATE BONUS =====
+        // 4. CALCULATE BONUS
         if (matches >= rule.minMatches) {
             let bonus = rule.bonus;
             
-            // Bonus for extra matches beyond minimum
             if (rule.bonusPerExtraMatch && matches > rule.minMatches) {
                 bonus += (matches - rule.minMatches) * rule.bonusPerExtraMatch;
             }
             
-            // Bonus for trait matches from user inputs
             let traitBonus = 0;
             if (rule.traitMatch) {
                 for (let [traitKey, expectedValue] of Object.entries(rule.traitMatch)) {
                     if (inputs[traitKey] === expectedValue) {
-                        traitBonus += 5;
-                    }
-                    // Also check environmental context
-                    if (environmentalContext[traitKey] === expectedValue) {
                         traitBonus += 3;
+                    }
+                    if (environmentalContext[traitKey] === expectedValue) {
+                        traitBonus += 2;
                     }
                 }
             }
             
             bonus += traitBonus;
             
-            // Apply maximum bonus cap
-            const maxBonus = rule.maxBonus || 35;
+            const maxBonus = rule.maxBonus || 20;
             bonus = Math.min(bonus, maxBonus);
             
             assemblageBonuses.push({
@@ -1702,10 +1690,8 @@ function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
         }
     }
     
-    // ===== 5. RETURN BEST MATCH =====
     if (assemblageBonuses.length === 0) return null;
     
-    // Sort by bonus (highest first), then by match count
     assemblageBonuses.sort((a, b) => {
         if (a.bonus !== b.bonus) return b.bonus - a.bonus;
         return b.matches - a.matches;
@@ -1713,20 +1699,23 @@ function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
     
     const best = assemblageBonuses[0];
     
-    // Optional: Store secondary matches for debugging/display
     if (assemblageBonuses.length > 1) {
         best.alternatives = assemblageBonuses.slice(1, 4);
+    }
+    
+    if (DEBUG_MODE) {
+        console.log(`🏆 Assemblage detected: ${best.name} (bonus: +${best.bonus}, matches: ${best.matches}/${best.requiredMatches})`);
     }
     
     return best;
 }
 
+// ===== HARD EXCLUSIONS =====
 function applyHardExclusions(comm, inputs, environmentalContext) {
     let penalty = 0;
     let reasons = [];
     let isHardExcluded = false;
 
-    // Structure mismatch penalty (increased)
     if (inputs.structure === "treeless" && comm.traits.structure === "forest") {
         penalty -= 8;
         reasons.push("❌ EXCLUSION: Treeless structure cannot be forest");
@@ -1739,7 +1728,6 @@ function applyHardExclusions(comm, inputs, environmentalContext) {
         isHardExcluded = true;
     }
 
-    // Moisture vs dominant hard exclusion
     if (inputs.moisture === "dry" && comm.traits.dominant === "rainforest") {
         penalty -= 12;
         reasons.push("❌ HARD EXCLUSION: Rainforest cannot occur in dry conditions");
@@ -1764,20 +1752,18 @@ function applyHardExclusions(comm, inputs, environmentalContext) {
         isHardExcluded = true;
     }
 
-    // Dominant exclusions
-    if (inputs.dominant === "buttongrass" && comm.code !== "M") {
+    if (inputs.dominant === "buttongrass" && !comm.code.startsWith("MB")) {
         penalty -= 6;
         reasons.push("❌ EXCLUSION: Buttongrass dominant only matches Buttongrass Moorland");
         isHardExcluded = true;
     }
     
-    if (inputs.dominant === "rainforest" && comm.traits.dominant !== "rainforest" && comm.code !== "ROS") {
+    if (inputs.dominant === "rainforest" && comm.traits.dominant !== "rainforest" && comm.code !== "ROS" && comm.code !== "SRF") {
         penalty -= 8;
         reasons.push("❌ EXCLUSION: Rainforest dominant only matches Rainforest communities");
         isHardExcluded = true;
     }
 
-    // Elevation exclusions
     if (inputs.elevation === "high" && comm.traits.elevation === "low") {
         penalty -= 5;
         reasons.push("❌ EXCLUSION: Elevation mismatch (high vs low)");
@@ -1790,15 +1776,13 @@ function applyHardExclusions(comm, inputs, environmentalContext) {
         isHardExcluded = true;
     }
 
-    // Paperbark indicator
     if (inputs.dominant === "paperbark" && comm.traits.dominant !== "paperbark") {
         penalty -= 5;
         reasons.push("❌ EXCLUSION: Paperbark indicates Swamp Paperbark Forest");
         isHardExcluded = true;
     }
 
-    // Environmental context exclusions
-    if (environmentalContext.substrate === "limestone" && comm.code === "M") {
+    if (environmentalContext.substrate === "limestone" && comm.code && comm.code.startsWith("MB")) {
         penalty -= 6;
         reasons.push("❌ EXCLUSION: Buttongrass rarely occurs on limestone");
     }
@@ -1814,7 +1798,7 @@ function applyHardExclusions(comm, inputs, environmentalContext) {
         reasons.push("⚠ Poor drainage conflicts with dry/coastal community");
     }
     
-    if (environmentalContext.fire_history === "recent" && (comm.code === "R" || comm.code === "MYF")) {
+    if (environmentalContext.fire_history === "recent" && (comm.traits.dominant === "rainforest" || comm.code === "RKP" || comm.code === "RPP")) {
         penalty -= 10;
         reasons.push("❌ EXCLUSION: Rainforest cannot survive recent fire");
         isHardExcluded = true;
@@ -1828,6 +1812,7 @@ function applyHardExclusions(comm, inputs, environmentalContext) {
     return { penalty, reasons, isHardExcluded };
 }
 
+// ===== SCORE COMMUNITY =====
 function scoreCommunity(comm, inputs, environmentalContext) {
     let score = 0;
     let reasons = [];
@@ -1859,14 +1844,15 @@ function scoreCommunity(comm, inputs, environmentalContext) {
         });
     }
 
-    // Assemblage detection (this is gold!)
-    let assemblage = detectAssemblage(inputs.species || [], inputs);
+    // Assemblage detection
+    let assemblage = detectAssemblage(inputs.species || [], inputs, environmentalContext);
     if (assemblage && comm.traits.assemblage === assemblage.name) {
         score += assemblage.bonus;
         reasons.push(`🏆 ASSEMBLAGE LOCK: ${assemblage.name} detected! (+${assemblage.bonus})`);
     } else if (assemblage && assemblage.name === "rainforest" && comm.traits.assemblage === "rainforest_edge") {
-        score += Math.round(assemblage.bonus * 0.7);
-        reasons.push(`🌿 Rainforest assemblage suggests rainforest-edge community (+${Math.round(assemblage.bonus * 0.7)})`);
+        let bonus = Math.round(assemblage.bonus * 0.6);
+        score += bonus;
+        reasons.push(`🌿 Rainforest assemblage suggests rainforest-edge community (+${bonus})`);
     }
 
     // Exclusions
@@ -1875,20 +1861,29 @@ function scoreCommunity(comm, inputs, environmentalContext) {
     reasons = reasons.concat(exclusion.reasons);
     
     if (exclusion.isHardExcluded) {
-        score = -999; // Effectively remove from top results
+        score = -999;
     }
 
     return { score, reasons, isHardExcluded: exclusion.isHardExcluded };
 }
 
-function getConfidence(score) {
-    if (score >= 18) return { label: "High confidence", colour: "#2e7d32", icon: "🟢" };
-    if (score >= 10) return { label: "Moderate confidence", colour: "#f9a825", icon: "🟡" };
-    if (score >= 4) return { label: "Low confidence", colour: "#ff6b35", icon: "🟠" };
-    return { label: "Very low confidence", colour: "#c62828", icon: "🔴" };
+// ===== NORMALIZE SCORE & CONFIDENCE =====
+function normalizeScore(rawScore, maxPossibleScore = 35) {
+    let cappedScore = Math.min(rawScore, maxPossibleScore);
+    let percentage = Math.round((cappedScore / maxPossibleScore) * 100);
+    return { score: cappedScore, percentage: percentage };
 }
 
-// Get environmental context from form
+function getConfidence(rawScore) {
+    const { score, percentage } = normalizeScore(rawScore);
+    
+    if (percentage >= 70) return { label: "High confidence", colour: "#2e7d32", icon: "🟢", score: score, percentage: percentage };
+    if (percentage >= 50) return { label: "Moderate confidence", colour: "#f9a825", icon: "🟡", score: score, percentage: percentage };
+    if (percentage >= 30) return { label: "Low confidence", colour: "#ff6b35", icon: "🟠", score: score, percentage: percentage };
+    return { label: "Very low confidence", colour: "#c62828", icon: "🔴", score: score, percentage: percentage };
+}
+
+// ===== GET ENVIRONMENTAL CONTEXT =====
 function getEnvironmentalContext() {
     return {
         substrate: document.getElementById("substrate")?.value || "",
@@ -1899,6 +1894,7 @@ function getEnvironmentalContext() {
     };
 }
 
+// ===== RUN ANALYSIS =====
 function runAnalysis() {
     const structureEl = document.getElementById("structure");
     const moistureEl = document.getElementById("moisture");
@@ -1921,21 +1917,26 @@ function runAnalysis() {
         return { 
             code: c.code, 
             name: c.name, 
-            score: r.score, 
+            rawScore: r.score,
+            score: r.score,
             reasons: r.reasons,
             isHardExcluded: r.isHardExcluded
         };
     })
-    .filter(r => !r.isHardExcluded) // Remove hard-excluded communities
-    .sort((a, b) => b.score - a.score);
+    .filter(r => !r.isHardExcluded)
+    .sort((a, b) => b.rawScore - a.rawScore);
     
     // Store structured results for decision record
-    currentResults = results.map(r => ({
-        code: r.code,
-        name: r.name,
-        score: r.score,
-        confidence: getConfidence(r.score).label
-    }));
+    currentResults = results.map(r => {
+        const conf = getConfidence(r.rawScore);
+        return {
+            code: r.code,
+            name: r.name,
+            score: conf.score,
+            percentage: conf.percentage,
+            confidence: conf.label
+        };
+    });
 
     let html = `
         <div class="card">
@@ -1952,18 +1953,17 @@ function runAnalysis() {
                 </div>`;
         
         results.slice(0, 7).forEach(r => {
-            const conf = getConfidence(r.score);
-            const confidencePercent = Math.min(100, Math.round((r.score / 25) * 100));
+            const conf = getConfidence(r.rawScore);
 
             html += `
                 <div class="result-card">
                     <div class="result-code">
                         <span class="traffic-light ${conf.label.toLowerCase().replace(' ', '-')}"></span>
                         <strong>${r.code} — ${r.name}</strong>
-                        <span style="float:right; font-size:0.8em;">Confidence: ${confidencePercent}%</span>
+                        <span style="float:right; font-size:0.8em;">Confidence: ${conf.percentage}%</span>
                     </div>
                     <div class="result-score">
-                        Score: ${r.score} | 
+                        Score: ${conf.score} | 
                         <span style="color:${conf.colour}; font-weight:bold;">${conf.icon} ${conf.label}</span>
                     </div>
                     <div class="result-reasons">
@@ -1975,7 +1975,7 @@ function runAnalysis() {
         });
         
         // Add assemblage summary
-        const assemblage = detectAssemblage(inputs.species || [], inputs);
+        const assemblage = detectAssemblage(inputs.species || [], inputs, environmentalContext);
         if (assemblage) {
             html += `
                 <div style="background:#e8f5e9; padding:10px; border-radius:8px; margin-top:10px;">
@@ -1990,7 +1990,7 @@ function runAnalysis() {
     document.getElementById("results").innerHTML = html;
 }
 
-// Export decision record as structured JSON
+// ===== EXPORT DECISION RECORD =====
 function exportDecisionRecord() {
     if (!currentResults.length) {
         alert("No analysis results to export. Run analysis first.");
@@ -2042,7 +2042,7 @@ function copyDecisionSummary() {
     alert("Decision summary copied to clipboard!");
 }
 
-// SAVE RECORD - updated to use decision record format
+// ===== SAVE RECORD =====
 async function saveRecord() {
     if (!currentLatLng) {
         alert("Please set a location on the map first (click or use GPS).");
@@ -2061,7 +2061,7 @@ async function saveRecord() {
             elevation: document.getElementById("elevation").value,
             species: document.getElementById("species").value
         },
-        results: currentResults, // Structured results array
+        results: currentResults,
         photos: photos,
         version: "8.0"
     };
