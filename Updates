@@ -1,252 +1,149 @@
-Perfect! Here's the enhanced assemblageRules that works with the complete 163-community dataset. Replace your existing assemblageRules array in app.js with this:
-
-```javascript
-// ENHANCED ASSEMBLAGE DETECTION RULES - For complete TASVEG dataset
 const assemblageRules = [
     // ===== RAINFOREST ASSEMBLAGES =====
     {
         name: "rainforest",
-        description: "Cool temperate rainforest - dominated by Nothofagus, Athrotaxis, or Lagarostrobos",
+        description: "Cool temperate rainforest",
         species: ["Nothofagus cunninghamii", "Atherosperma moschatum", "Athrotaxis selaginoides", 
                   "Athrotaxis cupressoides", "Lagarostrobos franklinii", "Eucryphia lucida", 
                   "Phyllocladus aspleniifolius", "Anodopetalum biglandulosum", "Eucryphia milliganii"],
         minMatches: 2,
         bonus: 20,
-        traitMatch: { dominant: "rainforest" },
-        excludeMoisture: ["dry"],
-        excludeElevation: []
+        maxBonus: 30,
+        bonusPerExtraMatch: 2,
+        requireMoisture: ["wet"],
+        requireElevation: ["low", "mid", "high"],
+        excludeMoisture: ["dry", "coastal"],
+        excludeElevation: [],
+        traitMatch: { dominant: "rainforest" }
     },
     {
         name: "rainforest_edge",
-        description: "Rainforest edge or successional scrub - transitioning between rainforest and other communities",
+        description: "Rainforest edge or successional scrub",
         species: ["Nothofagus cunninghamii", "Leptospermum lanigerum", "Leptospermum scoparium", 
                   "Atherosperma moschatum", "Eucryphia lucida", "Pomaderris apetala", "Olearia argophylla"],
         minMatches: 2,
         bonus: 12,
-        traitMatch: { dominant: "mixed", structure: "scrub" },
+        maxBonus: 22,
+        bonusPerExtraMatch: 1,
+        requireMoisture: ["wet"],
         excludeMoisture: ["dry"],
-        excludeElevation: []
+        traitMatch: { structure: "scrub" }
     },
 
     // ===== WET FOREST ASSEMBLAGES =====
     {
         name: "wet_forest",
-        description: "Wet eucalypt forest - tall trees with broad-leaf or rainforest understorey",
+        description: "Wet eucalypt forest",
         species: ["Eucalyptus obliqua", "Eucalyptus regnans", "Eucalyptus tasmaniensis", "Eucalyptus nitida",
                   "Eucalyptus globulus", "Eucalyptus brookeriana", "Eucalyptus delegatensis", 
                   "Dicksonia antarctica", "Atherosperma moschatum", "Pomaderris apetala", "Olearia argophylla"],
         minMatches: 2,
         bonus: 15,
-        traitMatch: { moisture: "wet", dominant: "eucalypt", structure: "forest" },
+        maxBonus: 25,
+        bonusPerExtraMatch: 2,
+        requireMoisture: ["wet"],
+        requireStructure: ["forest"],
         excludeMoisture: ["dry", "coastal"],
-        excludeElevation: []
-    },
-    {
-        name: "mixed_forest",
-        description: "Mixed forest - eucalypts with rainforest understorey",
-        species: ["Eucalyptus obliqua", "Eucalyptus tasmaniensis", "Nothofagus cunninghamii", 
-                  "Atherosperma moschatum", "Eucryphia lucida", "Phyllocladus aspleniifolius"],
-        minMatches: 2,
-        bonus: 12,
-        traitMatch: { dominant: "mixed", moisture: "wet" },
-        excludeMoisture: ["dry"],
-        excludeElevation: []
+        traitMatch: { dominant: "eucalypt", moisture: "wet" }
     },
 
     // ===== DRY FOREST ASSEMBLAGES =====
     {
         name: "dry_forest",
-        description: "Dry eucalypt forest - grassy or heathy understorey, lower rainfall areas",
+        description: "Dry eucalypt forest",
         species: ["Eucalyptus amygdalina", "Eucalyptus pulchella", "Eucalyptus tenuiramis", "Eucalyptus viminalis",
                   "Eucalyptus pauciflora", "Eucalyptus ovata", "Eucalyptus sieberi", "Eucalyptus coccifera",
                   "Banksia marginata", "Allocasuarina verticillata", "Themeda triandra"],
         minMatches: 2,
         bonus: 15,
-        traitMatch: { moisture: "dry", dominant: "eucalypt" },
+        maxBonus: 25,
+        bonusPerExtraMatch: 2,
+        requireMoisture: ["dry"],
+        requireStructure: ["forest", "woodland"],
         excludeMoisture: ["wet", "waterlogged"],
-        excludeElevation: ["high"]  // except subalpine eucalypts like coccifera
-    },
-    {
-        name: "woodland",
-        description: "Eucalypt woodland - open canopy, grassy understorey",
-        species: ["Eucalyptus viminalis", "Eucalyptus ovata", "Eucalyptus pauciflora", "Eucalyptus amygdalina",
-                  "Allocasuarina verticillata", "Themeda triandra", "Poa spp.", "Rytidosperma spp."],
-        minMatches: 2,
-        bonus: 10,
-        traitMatch: { structure: "woodland" },
-        excludeMoisture: ["wet", "waterlogged"],
-        excludeElevation: []
-    },
-
-    // ===== SCRUB AND HEATH ASSEMBLAGES =====
-    {
-        name: "scrub",
-        description: "Dense shrubland - tea-tree, paperbark, or broad-leaf scrub",
-        species: ["Leptospermum scoparium", "Leptospermum lanigerum", "Melaleuca squarrosa", "Melaleuca ericifolia",
-                  "Acacia mucronata", "Banksia marginata", "Pomaderris apetala", "Leptospermum glaucescens"],
-        minMatches: 2,
-        bonus: 12,
-        traitMatch: { structure: "scrub" },
-        excludeMoisture: ["alpine"],
-        excludeElevation: []
-    },
-    {
-        name: "heath",
-        description: "Low shrubland - heathy vegetation on poor soils",
-        species: ["Epacris impressa", "Pultenaea juniperina", "Banksia marginata", "Xanthorrhoea australis",
-                  "Leptospermum scoparium", "Allocasuarina monilifera", "Hibbertia riparia", "Lomatia tinctoria"],
-        minMatches: 2,
-        bonus: 12,
-        traitMatch: { dominant: "heath", structure: "scrub" },
-        excludeMoisture: ["waterlogged"],
-        excludeElevation: []
+        traitMatch: { dominant: "eucalypt", moisture: "dry" }
     },
 
     // ===== COASTAL ASSEMBLAGES =====
     {
         name: "coastal",
-        description: "Coastal vegetation - salt-tolerant, wind-pruned, sandy soils",
+        description: "Coastal vegetation",
         species: ["Spinifex sericeus", "Austrofestuca littoralis", "Leucopogon parviflorus", "Acacia longifolia",
                   "Myoporum insulare", "Correa alba", "Westringia brevifolia", "Rhagodia candolleana",
                   "Carpobrotus rossii", "Disphyma crassifolium", "Salicornia quinqueflora"],
         minMatches: 2,
         bonus: 15,
-        traitMatch: { moisture: "coastal" },
+        maxBonus: 25,
+        bonusPerExtraMatch: 2,
+        requireMoisture: ["coastal"],
         excludeMoisture: ["alpine", "waterlogged"],
-        excludeElevation: []
-    },
-    {
-        name: "coastal_heath",
-        description: "Coastal heathland - diverse heath on dunes and headlands",
-        species: ["Epacris impressa", "Banksia marginata", "Leptospermum scoparium", "Leucopogon parviflorus",
-                  "Xanthorrhoea australis", "Pultenaea juniperina", "Correa alba", "Westringia brevifolia"],
-        minMatches: 2,
-        bonus: 10,
-        traitMatch: { assemblage: "coastal", dominant: "heath" },
-        excludeMoisture: ["alpine"],
-        excludeElevation: []
+        traitMatch: { moisture: "coastal" }
     },
 
     // ===== WETLAND ASSEMBLAGES =====
     {
         name: "wetland",
-        description: "Wetland vegetation - waterlogged soils, sedges, rushes, paperbark",
+        description: "Wetland vegetation",
         species: ["Gymnoschoenus sphaerocephalus", "Melaleuca ericifolia", "Melaleuca squarrosa", 
                   "Sphagnum cristatum", "Baumea spp.", "Juncus kraussii", "Juncus spp.", "Carex spp.",
                   "Leptospermum lanigerum", "Empodisma minus", "Phragmites australis", "Eleocharis spp."],
         minMatches: 2,
         bonus: 15,
-        traitMatch: { moisture: "waterlogged" },
+        maxBonus: 25,
+        bonusPerExtraMatch: 2,
+        requireMoisture: ["waterlogged"],
         excludeMoisture: ["dry", "coastal"],
-        excludeElevation: []
-    },
-    {
-        name: "buttongrass",
-        description: "Buttongrass moorland - western Tasmanian wetlands",
-        species: ["Gymnoschoenus sphaerocephalus", "Melaleuca squamea", "Empodisma minus", "Baloskion australe",
-                  "Lepidosperma filiforme", "Sprengelia incarnata"],
-        minMatches: 2,
-        bonus: 12,
-        traitMatch: { dominant: "buttongrass" },
-        excludeMoisture: ["dry"],
-        excludeElevation: []
-    },
-    {
-        name: "saltmarsh",
-        description: "Saltmarsh - saline coastal wetlands",
-        species: ["Salicornia quinqueflora", "Tecticornia arbuscula", "Suaeda australis", "Juncus kraussii",
-                  "Gahnia filum", "Sarcocornia blackiana", "Disphyma crassifolium", "Samolus repens"],
-        minMatches: 2,
-        bonus: 12,
-        traitMatch: { assemblage: "wetland", moisture: "coastal" },
-        excludeMoisture: ["alpine", "dry"],
-        excludeElevation: []
+        traitMatch: { moisture: "waterlogged" }
     },
 
     // ===== ALPINE ASSEMBLAGES =====
     {
         name: "alpine",
-        description: "Alpine vegetation - above treeline, frost-hardy, low-growing",
+        description: "Alpine vegetation",
         species: ["Richea scoparia", "Donatia novae-zelandiae", "Podocarpus lawrencei", "Abrotanella forsteroides",
                   "Pterygopappus lawrencei", "Dracophyllum minimum", "Orites revoluta", "Orites acicularis",
                   "Microcachrys tetragona", "Diselma archeri", "Poa gunnii", "Celmisia asteliifolia"],
         minMatches: 2,
         bonus: 20,
-        traitMatch: { moisture: "alpine", elevation: "high" },
+        maxBonus: 30,
+        bonusPerExtraMatch: 2,
+        requireElevation: ["high"],
+        requireMoisture: ["alpine"],
         excludeMoisture: ["dry", "wet", "coastal"],
-        excludeElevation: ["low", "mid"]
-    },
-    {
-        name: "alpine_heath",
-        description: "Alpine heathland - shrubby alpine vegetation",
-        species: ["Richea scoparia", "Orites revoluta", "Leptospermum rupestre", "Epacris serpyllifolia",
-                  "Richea sprengelioides", "Ozothamnus rodwayi", "Pentachondra pumila"],
-        minMatches: 2,
-        bonus: 12,
-        traitMatch: { assemblage: "alpine", dominant: "heath" },
-        excludeMoisture: ["waterlogged"],
-        excludeElevation: ["low", "mid"]
-    },
-    {
-        name: "cushion_moorland",
-        description: "Cushion moorland - alpine bolster heath",
-        species: ["Abrotanella forsteroides", "Donatia novae-zelandiae", "Dracophyllum minimum", 
-                  "Pterygopappus lawrencei", "Phyllachne colensoi", "Dracophyllum milliganii"],
-        minMatches: 2,
-        bonus: 15,
-        traitMatch: { dominant: "cushion", assemblage: "alpine" },
-        excludeMoisture: ["dry"],
-        excludeElevation: ["low", "mid"]
-    },
-
-    // ===== MACQUARIE ISLAND ASSEMBLAGES =====
-    {
-        name: "macquarie_alpine",
-        description: "Macquarie Island alpine - Azorella cushions, fjaeldmark",
-        species: ["Azorella macquariensis", "Ditrichum strictum", "Racomitrium crispulum", "Epilobium brunnescens"],
-        minMatches: 2,
-        bonus: 15,
-        traitMatch: { assemblage: "alpine", elevation: "high" },
-        excludeMoisture: ["dry", "wet"],
-        excludeElevation: ["low", "mid"]
-    },
-    {
-        name: "macquarie_coastal",
-        description: "Macquarie Island coastal - tussock grassland, megaherbs, mire",
-        species: ["Poa foliosa", "Stilbocarpa polaris", "Pleurophyllum hookeri", "Agrostis magellanica",
-                  "Acaena magellanica", "Juncus scheuchzerioides", "Hydrocotyle nova-zeelandiae"],
-        minMatches: 2,
-        bonus: 12,
-        traitMatch: { assemblage: "coastal" },
-        excludeMoisture: ["alpine"],
-        excludeElevation: ["high"]
+        excludeElevation: ["low", "mid"],
+        traitMatch: { elevation: "high", moisture: "alpine" }
     },
 
     // ===== GRASSLAND ASSEMBLAGES =====
     {
         name: "grassland",
-        description: "Native grassland - dominated by native grasses",
+        description: "Native grassland",
         species: ["Themeda triandra", "Poa labillardierei", "Poa rodwayi", "Austrostipa spp.", "Rytidosperma spp.",
                   "Poa gunnii", "Austrostipa stipoides", "Poa poiformis", "Spinifex sericeus"],
         minMatches: 2,
         bonus: 12,
-        traitMatch: { dominant: "grass", structure: "treeless" },
+        maxBonus: 22,
+        bonusPerExtraMatch: 1,
+        requireStructure: ["treeless"],
         excludeMoisture: ["waterlogged"],
-        excludeElevation: []
-    },
-    {
-        name: "highland_grassland",
-        description: "Highland Poa grassland - subalpine tussock grasslands",
-        species: ["Poa gunnii", "Poa labillardierei", "Poa costiniana", "Poa clivicola", "Australopyrum pectinatum",
-                  "Rytidosperma nudiflorum", "Grevillea australis", "Epacris gunnii"],
-        minMatches: 2,
-        bonus: 10,
-        traitMatch: { assemblage: "grassland", elevation: "high" },
-        excludeMoisture: ["waterlogged"],
-        excludeElevation: ["low"]
+        traitMatch: { dominant: "grass", structure: "treeless" }
     },
 
-    // ===== NON-NATIVE ASSEMBLAGES =====
+    // ===== MACQUARIE ISLAND =====
+    {
+        name: "macquarie_coastal",
+        description: "Macquarie Island coastal",
+        species: ["Poa foliosa", "Stilbocarpa polaris", "Pleurophyllum hookeri", "Agrostis magellanica",
+                  "Acaena magellanica", "Juncus scheuchzerioides", "Hydrocotyle nova-zeelandiae",
+                  "Azorella macquariensis"],
+        minMatches: 2,
+        bonus: 15,
+        maxBonus: 25,
+        bonusPerExtraMatch: 2,
+        traitMatch: { assemblage: "coastal" }
+    },
+
+    // ===== MODIFIED ASSEMBLAGES =====
     {
         name: "modified",
         description: "Modified or non-native vegetation",
@@ -254,120 +151,8 @@ const assemblageRules = [
                   "Salix fragilis", "Ammophila arenaria", "Spartina anglica", "Erica lusitanica"],
         minMatches: 1,
         bonus: 10,
-        traitMatch: { dominant: "exotic", assemblage: "modified" },
-        excludeMoisture: []
-    },
-    {
-        name: "plantation",
-        description: "Silvicultural plantation - exotic or native monoculture",
-        species: ["Eucalyptus nitens", "Eucalyptus globulus", "Pinus radiata"],
-        minMatches: 1,
-        bonus: 12,
-        traitMatch: { assemblage: "modified" },
-        excludeMoisture: []
-    },
-
-    // ===== SPECIALIZED ASSEMBLAGES =====
-    {
-        name: "casuarina",
-        description: "Casuarina forest/woodland - Allocasuarina dominated",
-        species: ["Allocasuarina verticillata", "Allocasuarina littoralis", "Allocasuarina monilifera", 
-                  "Allocasuarina crassa", "Allocasuarina duncanii"],
-        minMatches: 1,
-        bonus: 10,
-        traitMatch: { dominant: "casuarina" },
-        excludeMoisture: ["waterlogged"],
-        excludeElevation: []
-    },
-    {
-        name: "wattle",
-        description: "Wattle forest/scrub - Acacia dominated",
-        species: ["Acacia dealbata", "Acacia melanoxylon", "Acacia mucronata", "Acacia longifolia", 
-                  "Acacia verticillata", "Acacia terminalis"],
-        minMatches: 2,
-        bonus: 10,
-        traitMatch: { dominant: "wattle" },
-        excludeMoisture: []
-    },
-    {
-        name: "conifer_heath",
-        description: "Alpine coniferous heathland - dwarf conifers",
-        species: ["Microcachrys tetragona", "Diselma archeri", "Podocarpus lawrencei", "Pherosphaera hookeriana"],
-        minMatches: 1,
-        bonus: 12,
-        traitMatch: { assemblage: "alpine", dominant: "heath" },
-        excludeMoisture: ["dry", "wet"],
-        excludeElevation: ["low", "mid"]
-    },
-    {
-        name: "subalpine",
-        description: "Subalpine vegetation - transition zone below treeline",
-        species: ["Eucalyptus coccifera", "Eucalyptus gunnii", "Eucalyptus subcrenulata", "Eucalyptus urnigera",
-                  "Richea scoparia", "Richea pandanifolia", "Orites revoluta", "Athrotaxis cupressoides",
-                  "Nothofagus gunnii", "Leptospermum rupestre"],
-        minMatches: 2,
-        bonus: 12,
-        traitMatch: { elevation: "high" },
-        excludeMoisture: ["coastal"],
-        excludeElevation: ["low"]
+        maxBonus: 20,
+        bonusPerExtraMatch: 2,
+        traitMatch: { dominant: "exotic" }
     }
 ];
-```
-
-What's Improved:
-
-1. More specific assemblage names - Now includes rainforest_edge, mixed_forest, buttongrass, saltmarsh, alpine_heath, cushion_moorland, etc.
-2. Macquarie Island support - macquarie_alpine and macquarie_coastal for subantarctic vegetation
-3. Better species coverage - Added key species for each assemblage from the expanded dataset (Athrotaxis, Lagarostrobos, Macquarie megaherbs, etc.)
-4. Exclude conditions - Each rule now has excludeMoisture and excludeElevation arrays for more precise matching
-5. Higher bonuses - Increased bonuses for highly diagnostic assemblages (rainforest: 20, alpine: 20, coastal: 15)
-6. Specialized rules - Added casuarina, wattle, conifer_heath, and subalpine for edge cases
-
-To integrate fully with your existing scoring system, you may also want to update the detectAssemblage function to use the new excludeMoisture and excludeElevation properties. Here's a quick enhancement:
-
-```javascript
-function detectAssemblage(speciesList, inputs) {
-    let assemblageBonuses = [];
-    
-    for (let rule of assemblageRules) {
-        // Check exclusions first
-        if (rule.excludeMoisture && rule.excludeMoisture.includes(inputs.moisture)) continue;
-        if (rule.excludeElevation && rule.excludeElevation.includes(inputs.elevation)) continue;
-        
-        let matches = 0;
-        for (let sp of speciesList) {
-            for (let ruleSp of rule.species) {
-                if (sp.toLowerCase().includes(ruleSp.toLowerCase()) || 
-                    ruleSp.toLowerCase().includes(sp.toLowerCase())) {
-                    matches++;
-                    break;
-                }
-            }
-        }
-        
-        if (matches >= rule.minMatches) {
-            let traitBonus = 0;
-            if (rule.traitMatch) {
-                for (let [key, value] of Object.entries(rule.traitMatch)) {
-                    if (inputs[key] === value) traitBonus += 5;
-                }
-            }
-            assemblageBonuses.push({
-                name: rule.name,
-                description: rule.description,
-                bonus: Math.min(rule.bonus + traitBonus, 25),
-                matches: matches
-            });
-        }
-    }
-    
-    // Return highest bonus if multiple assemblages detected
-    if (assemblageBonuses.length > 0) {
-        assemblageBonuses.sort((a, b) => b.bonus - a.bonus);
-        return assemblageBonuses[0];
-    }
-    return null;
-}
-```
-
-Now your app has complete coverage of all 163 TASVEG communities with intelligent assemblage detection for all major vegetation types across Tasmania and Macquarie Island!
