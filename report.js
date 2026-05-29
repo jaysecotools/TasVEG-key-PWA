@@ -35,6 +35,7 @@ function exportFullReport() {
         table { border-collapse: collapse; width: 100%; }
         td, th { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background: #eef2ef; }
+        .footer { margin-top: 40px; text-align: center; font-size: 0.8em; color: #666; }
     </style>
 </head>
 <body>
@@ -82,7 +83,7 @@ function exportFullReport() {
         reportHtml += `
         <div class="result ${conf.label.toLowerCase().replace(' ', '-')}">
             <strong>${r.code} — ${r.name}</strong><br>
-            Score: ${r.score} | ${conf.icon} ${conf.label}
+            Score: ${r.score} | ${conf.icon} ${conf.label} (${r.percentage}%)
         </div>
         `;
     });
@@ -92,11 +93,11 @@ function exportFullReport() {
     
     <div class="section">
         <h2>📝 Assessment Notes</h2>
-        <p>This assessment was conducted using the TasVEG Field System v8.0.</p>
+        <p>This assessment was conducted using the TasVEG Field System.</p>
         <p>${currentResults[0] ? `Primary recommendation: <strong>${currentResults[0].code} - ${currentResults[0].name}</strong> with ${currentResults[0].confidence}.` : "No confident identification possible."}</p>
     </div>
     
-    <div class="meta" style="margin-top: 40px; text-align: center;">
+    <div class="footer">
         TasVEG Field System - Professional Edition<br>
         Report generated offline
     </div>
