@@ -1,7 +1,7 @@
 // storage.js - Updated for decision records
 
 const DB_NAME = 'tasveg_db';
-const DB_VERSION = 2; // Incremented for schema change
+const DB_VERSION = 3; // Incremented for schema change
 const STORE_NAME = 'records';
 
 let db = null;
@@ -28,6 +28,7 @@ function openDB() {
                 const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
                 store.createIndex('timestamp', 'timestamp', { unique: false });
                 store.createIndex('location_lat', 'location.lat', { unique: false });
+                store.createIndex('version', 'version', { unique: false });
             }
         };
     });
@@ -54,7 +55,7 @@ async function getAllRecords() {
         const store = transaction.objectStore(STORE_NAME);
         const request = store.getAll();
         
-        request.onsuccess = () => resolve(request.result);
+        request.onsuccess = () => resolve(request.result || []);
         request.onerror = () => reject(request.error);
     });
 }
@@ -84,3 +85,19 @@ async function deleteRecord(id) {
         request.onerror = () => reject(request.error);
     });
 }
+
+async function getRecordsByLocation(lat, lon, tolerance = 0.01) {
+    const allRecords = await getAllRecords();
+    return allRecords.filter(record => {
+        if (!record.location) return false;
+        return Math.abs(record.location.lat - lat) <= tolerance && 
+               Math.abs(record.location.lon - lon) <= tolerance;
+    });
+}
+
+// Make functions available globally
+window.saveToDB = saveToDB;
+window.getAllRecords = getAllRecords;
+window.getRecord = getRecord;
+window.deleteRecord = deleteRecord;
+window.getRecordsByLocation = getRecordsByLocation;
