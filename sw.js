@@ -1,4 +1,4 @@
-const CACHE = "tasveg-v7.2.1";
+const CACHE = "tasveg-v8.0.0";
 
 const ASSETS = [
     "./",
