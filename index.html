@@ -267,7 +267,7 @@ summary {
 <body>
 
 <header>
-    <span>🌿 TasVEG Field System v8.0</span>
+    <span>🌿 TasVEG Field System v8.0.0</span>
     <button id="installHeaderBtn" style="display:none;">📱 Install App</button>
 </header>
 
@@ -355,11 +355,12 @@ summary {
     <div id="photoPreview" class="photo-preview"></div>
 
     <button onclick="runAnalysis()">🔍 Run Analysis</button>
-    <div class="button-group" style="margin-top:8px;">
-        <button onclick="saveRecord()" style="flex:1;">💾 Save Record</button>
-        <button onclick="exportJSON()" style="flex:1; background:#2c7da0;">📄 Export JSON</button>
-        <button onclick="exportCSV()" style="flex:1; background:#2c7da0;">📊 Export CSV</button>
-    </div>
+<div class="button-group" style="margin-top:8px;">
+    <button onclick="saveRecord()" style="flex:1;">💾 Save Record</button>
+    <button onclick="exportJSON()" style="flex:1; background:#2c7da0;">📄 Export JSON</button>
+    <button onclick="exportCSV()" style="flex:1; background:#2c7da0;">📊 Export CSV</button>
+    <button onclick="exportFullReport()" style="flex:1; background:#1b6133;">📋 Full Report</button>
+</div>
 </div>
 
 <!-- ENVIRONMENTAL CONTEXT CARD - Add after existing inputs card -->
@@ -441,6 +442,7 @@ summary {
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="storage.js"></script>
 <script src="export.js"></script>
+<script src="report.js"></script>
 <script src="app.js"></script>
 
 <script>
