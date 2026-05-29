@@ -1,63 +1,6 @@
-Your index.html modifications look perfect! ✅
-
-You've correctly added the Environmental Context card in the right location (between the Field Data card and the results div). The structure is clean, the select options are comprehensive, and you've kept the version number consistent (v8.0).
-
-A few minor suggestions to make it even better:
-
-Optional Improvements:
-
-1. Add a "Export Report" button in the results area (near the existing buttons)
-
-Add this button to the button-group in the Field Data card (around line ~245):
-
-```html
-<button onclick="exportFullReport()" style="flex:1; background:#1b6133;">📋 Full Report</button>
-```
-
-So the button-group becomes:
-
-```html
-<div class="button-group" style="margin-top:8px;">
-    <button onclick="saveRecord()" style="flex:1;">💾 Save Record</button>
-    <button onclick="exportJSON()" style="flex:1; background:#2c7da0;">📄 Export JSON</button>
-    <button onclick="exportCSV()" style="flex:1; background:#2c7da0;">📊 Export CSV</button>
-    <button onclick="exportFullReport()" style="flex:1; background:#1b6133;">📋 Full Report</button>
-</div>
-```
-
-2. Update the script includes to include the new report.js
-
-Add this line after the other script includes (around line ~308):
-
-```html
-<script src="report.js"></script>
-```
-
-So the block becomes:
-
-```html
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="storage.js"></script>
-<script src="export.js"></script>
-<script src="report.js"></script>
-<script src="app.js"></script>
-```
-
-3. Minor version consistency (optional)
-
-The header shows "v8.0" and footer shows "v8.0.0" - both fine, but you might want them matching:
-
-Either change header to: 🌿 TasVEG Field System v8.0.0
-Or footer to: TasVEG Field System v8.0 © 2026 | Offline PWA
-
-Summary of your changes:
-
-· ✅ Added complete Environmental Context card with all 5 fields
-· ✅ Added elevation hint div
-· ✅ Maintained proper card structure and styling
-· ✅ Version updated to v8.0/v8.0.0
-· ✅ All existing functionality preserved
-
-You're ready to go! The HTML structure perfectly supports the enhanced app.js with decision records, assemblage logic, and hard exclusions.
-
-One thing to note: You'll need to make sure report.js exists (I provided the code in my previous response) and that your existing storage.js, export.js, and app.js are updated with the new versions I provided. The HTML itself is solid! 🎯
+Are you able to read these documents via links?
+https://nre.tas.gov.au/Documents/f2f_dry_eucalypt.pdf
+https://nre.tas.gov.au/Documents/f2f_descriptions.pdf
+https://nre.tas.gov.au/Documents/f2f_dry_eucalypt.pdf
+https://nre.tas.gov.au/Documents/f2f_highland_treeless.pdf
+https://nre.tas.gov.au/Documents/f2f_modified_land.pdf
