@@ -1,181 +1,38 @@
-Ah, my apologies for the confusion! You're right - I misunderstood your question.
+🌿 TasVEG Field Assessment Report
+Generated: 29/05/2026, 3:26:51 pm
+📍 Site Information
+Location	-41.050877, 145.601807
+Date/Time	2026-05-29T05:26:51.146Z
+Photos	0 captured
+🌲 Field Observations
+Structure	forest
+Moisture	wet
+Dominant	eucalypt
+Elevation	low
+Species	obliqua, antarctica, viminalis
+🌍 Environmental Context
+Substrate	dolerite
+Drainage	moderate
+Exposure	sheltered
+Fire History	old
+Disturbance	light
+📊 Analysis Results
+Decision Record - Structured assessment based on field data
 
-Yes, the detectAssemblage function I gave you earlier was a basic version. Let me give you the complete, production-ready version that properly integrates with your scoring system and the enhanced assemblage rules:
+DVF — Eucalyptus viminalis Furneaux Forest and Woodland
+Score: 55 | 🟢 High confidence
+DSC — Eucalyptus amygdalina–Eucalyptus obliqua Damp Sclerophyll Forest
+Score: 53 | 🟢 High confidence
+WOB — Eucalyptus obliqua Forest with Broad-leaf Shrubs
+Score: 53 | 🟢 High confidence
+WRE — Eucalyptus regnans Forest
+Score: 53 | 🟢 High confidence
+WVI — Eucalyptus viminalis Wet Forest
+Score: 53 | 🟢 High confidence
+📝 Assessment Notes
+This assessment was conducted using the TasVEG Field System v8.0.
 
-```javascript
-function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
-    if (!speciesList || speciesList.length === 0) return null;
-    
-    let assemblageBonuses = [];
-    
-    for (let rule of assemblageRules) {
-        // ===== 1. APPLY EXCLUSIONS =====
-        let isExcluded = false;
-        
-        // Check moisture exclusions
-        if (rule.excludeMoisture && rule.excludeMoisture.length > 0) {
-            if (inputs.moisture && rule.excludeMoisture.includes(inputs.moisture)) {
-                isExcluded = true;
-            }
-        }
-        
-        // Check elevation exclusions
-        if (!isExcluded && rule.excludeElevation && rule.excludeElevation.length > 0) {
-            if (inputs.elevation && rule.excludeElevation.includes(inputs.elevation)) {
-                isExcluded = true;
-            }
-        }
-        
-        // Check structure exclusions
-        if (!isExcluded && rule.excludeStructure && rule.excludeStructure.length > 0) {
-            if (inputs.structure && rule.excludeStructure.includes(inputs.structure)) {
-                isExcluded = true;
-            }
-        }
-        
-        // Check dominant exclusions
-        if (!isExcluded && rule.excludeDominant && rule.excludeDominant.length > 0) {
-            if (inputs.dominant && rule.excludeDominant.includes(inputs.dominant)) {
-                isExcluded = true;
-            }
-        }
-        
-        if (isExcluded) continue;
-        
-        // ===== 2. APPLY REQUIRED CONDITIONS =====
-        let requirementsMet = true;
-        
-        // Check required moisture
-        if (rule.requireMoisture && rule.requireMoisture.length > 0) {
-            if (!inputs.moisture || !rule.requireMoisture.includes(inputs.moisture)) {
-                requirementsMet = false;
-            }
-        }
-        
-        // Check required elevation
-        if (requirementsMet && rule.requireElevation && rule.requireElevation.length > 0) {
-            if (!inputs.elevation || !rule.requireElevation.includes(inputs.elevation)) {
-                requirementsMet = false;
-            }
-        }
-        
-        // Check required structure
-        if (requirementsMet && rule.requireStructure && rule.requireStructure.length > 0) {
-            if (!inputs.structure || !rule.requireStructure.includes(inputs.structure)) {
-                requirementsMet = false;
-            }
-        }
-        
-        if (!requirementsMet) continue;
-        
-        // ===== 3. MATCH SPECIES =====
-        let matches = 0;
-        let matchedSpecies = [];
-        
-        for (let userSp of speciesList) {
-            const userSpLower = userSp.toLowerCase().trim();
-            
-            for (let ruleSp of rule.species) {
-                const ruleSpLower = ruleSp.toLowerCase();
-                
-                // Handle wildcard matching for genus-level rules (e.g., "Baumea spp.")
-                let isMatch = false;
-                if (ruleSpLower.endsWith(' spp.')) {
-                    const genus = ruleSpLower.replace(' spp.', '');
-                    if (userSpLower.includes(genus)) {
-                        isMatch = true;
-                    }
-                } else {
-                    // Standard matching
-                    if (userSpLower.includes(ruleSpLower) || ruleSpLower.includes(userSpLower)) {
-                        isMatch = true;
-                    }
-                }
-                
-                if (isMatch && !matchedSpecies.includes(ruleSp)) {
-                    matches++;
-                    matchedSpecies.push(ruleSp);
-                    break; // Count each user species once per rule
-                }
-            }
-        }
-        
-        // ===== 4. CALCULATE BONUS =====
-        if (matches >= rule.minMatches) {
-            let bonus = rule.bonus;
-            
-            // Bonus for extra matches beyond minimum
-            if (rule.bonusPerExtraMatch && matches > rule.minMatches) {
-                bonus += (matches - rule.minMatches) * rule.bonusPerExtraMatch;
-            }
-            
-            // Bonus for trait matches from user inputs
-            let traitBonus = 0;
-            if (rule.traitMatch) {
-                for (let [traitKey, expectedValue] of Object.entries(rule.traitMatch)) {
-                    if (inputs[traitKey] === expectedValue) {
-                        traitBonus += 5;
-                    }
-                    // Also check environmental context
-                    if (environmentalContext[traitKey] === expectedValue) {
-                        traitBonus += 3;
-                    }
-                }
-            }
-            
-            bonus += traitBonus;
-            
-            // Apply maximum bonus cap
-            const maxBonus = rule.maxBonus || 35;
-            bonus = Math.min(bonus, maxBonus);
-            
-            assemblageBonuses.push({
-                name: rule.name,
-                description: rule.description || rule.name,
-                bonus: bonus,
-                matches: matches,
-                requiredMatches: rule.minMatches,
-                matchedSpecies: matchedSpecies,
-                traitBonus: traitBonus
-            });
-        }
-    }
-    
-    // ===== 5. RETURN BEST MATCH =====
-    if (assemblageBonuses.length === 0) return null;
-    
-    // Sort by bonus (highest first), then by match count
-    assemblageBonuses.sort((a, b) => {
-        if (a.bonus !== b.bonus) return b.bonus - a.bonus;
-        return b.matches - a.matches;
-    });
-    
-    const best = assemblageBonuses[0];
-    
-    // Optional: Store secondary matches for debugging/display
-    if (assemblageBonuses.length > 1) {
-        best.alternatives = assemblageBonuses.slice(1, 4);
-    }
-    
-    return best;
-}
-```
+Primary recommendation: DVF - Eucalyptus viminalis Furneaux Forest and Woodland with High confidence.
 
-What this enhanced version adds:
-
-1. Proper exclusion handling - Respects excludeMoisture, excludeElevation, excludeStructure, excludeDominant
-2. Required conditions - Uses requireMoisture, requireElevation, requireStructure from your rules
-3. Wildcard matching - Handles "Baumea spp." type entries - matches any species starting with "Baumea"
-4. Bonus multipliers - Supports bonusPerExtraMatch for exceeding minimum species matches
-5. Trait bonus from environmental context - Also checks the environmentalContext object you pass in
-6. Alternative results - Stores secondary matches for potential display in UI
-7. Maximum bonus capping - Respects maxBonus so scores don't get unreasonably high
-
-To use it with your scoring system, make sure you're passing the environmentalContext when calling it:
-
-```javascript
-// In your scoreCommunity function, update the call:
-let assemblage = detectAssemblage(inputs.species || [], inputs, environmentalContext);
-```
-
-The basic version would work, but this complete version is much more accurate for the full 163-community dataset!
+TasVEG Field System - Professional Edition
+Report generated offline
