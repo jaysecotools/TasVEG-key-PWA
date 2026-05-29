@@ -9,6 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1b6133">
 
+<!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
 <style>
@@ -110,9 +111,12 @@ button.secondary:hover {
 }
 
 #map {
-    height: 260px;
+    height: 300px;
+    width: 100%;
     border-radius: 10px;
     margin-top: 10px;
+    background: #f0f0f0;
+    border: 1px solid #ccc;
 }
 
 #coords {
@@ -267,7 +271,6 @@ summary {
 .moderate-confidence { background-color: #f9a825; }
 .low-confidence { background-color: #c62828; }
 
-/* Update Modal Specific */
 .update-modal {
     max-width: 450px;
 }
@@ -360,21 +363,14 @@ summary {
             <li><strong>Elevation:</strong> Low, mid, high</li>
             <li><strong>Species:</strong> Optional comma-separated observations</li>
         </ul>
-        <hr>
-        <h4>🌱 Key Species Reference</h4>
-        <p><strong>Forests:</strong> Eucalyptus obliqua, E. regnans, Nothofagus cunninghamii, Atherosperma moschatum</p>
-        <p><strong>Woodlands:</strong> Eucalyptus viminalis, E. ovata, Banksia marginata</p>
-        <p><strong>Scrub & Heath:</strong> Leptospermum scoparium, Melaleuca squarrosa, Epacris impressa</p>
-        <p><strong>Wetlands:</strong> Gymnoschoenus sphaerocephalus, Baumea, Juncus, Carex, Sphagnum</p>
-        <p><strong>Alpine:</strong> Richea scoparia, Podocarpus lawrencei</p>
     </div>
 </details>
 
 <!-- MAP -->
 <div class="card">
     <h3>📍 Site Mapping</h3>
-    <button onclick="getLocation()">📍 Use GPS</button>
-    <div id="coords" class="small">No location set</div>
+    <button onclick="getLocation()" type="button">📍 Use GPS</button>
+    <div id="coords" class="small">No location set - click map to place marker</div>
     <div id="map"></div>
     <div class="small" style="margin-top:8px;">Click map to drop marker, drag to adjust</div>
 </div>
@@ -426,15 +422,15 @@ summary {
     <input id="species" placeholder="e.g. Eucalyptus obliqua, Banksia marginata">
 
     <label>📸 Photos</label>
-    <input type="file" accept="image/*" capture="environment" id="photoInput" multiple>
+    <input type="file" accept="image/*" id="photoInput" multiple>
     <div id="photoPreview" class="photo-preview"></div>
 
-    <button onclick="runAnalysis()">🔍 Run Analysis</button>
+    <button onclick="runAnalysis()" type="button">🔍 Run Analysis</button>
     <div class="button-group" style="margin-top:8px;">
-        <button onclick="saveRecord()" style="flex:1;">💾 Save Record</button>
-        <button onclick="exportJSON()" style="flex:1; background:#2c7da0;">📄 Export JSON</button>
-        <button onclick="exportCSV()" style="flex:1; background:#2c7da0;">📊 Export CSV</button>
-        <button onclick="exportFullReport()" style="flex:1; background:#1b6133;">📋 Full Report</button>
+        <button onclick="saveRecord()" style="flex:1;" type="button">💾 Save Record</button>
+        <button onclick="exportJSON()" style="flex:1; background:#2c7da0;" type="button">📄 Export JSON</button>
+        <button onclick="exportCSV()" style="flex:1; background:#2c7da0;" type="button">📊 Export CSV</button>
+        <button onclick="exportFullReport()" style="flex:1; background:#1b6133;" type="button">📋 Full Report</button>
     </div>
 </div>
 
@@ -543,24 +539,40 @@ summary {
     </div>
 </div>
 
+<!-- Leaflet JavaScript (MUST load before our scripts) -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Our scripts - order matters! -->
 <script src="storage.js"></script>
 <script src="export.js"></script>
 <script src="report.js"></script>
 <script src="version.js"></script>
 <script src="app.js"></script>
 
+<!-- Final initialization - ensures map loads -->
 <script>
-// Service Worker Registration
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').then(registration => {
-            console.log('ServiceWorker registered successfully');
-        }).catch(error => {
-            console.log('ServiceWorker registration failed:', error);
-        });
-    });
-}
+// Final safety initialization
+(function() {
+    // Wait for DOM and Leaflet to be ready
+    function waitForMap() {
+        if (typeof L !== 'undefined' && typeof initMap === 'function') {
+            console.log('Leaflet loaded, initializing map...');
+            initMap();
+        } else if (typeof L === 'undefined') {
+            console.error('Leaflet not loaded!');
+        } else if (typeof initMap !== 'function') {
+            console.log('Waiting for initMap function...');
+            setTimeout(waitForMap, 100);
+        }
+    }
+    
+    // Start when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', waitForMap);
+    } else {
+        waitForMap();
+    }
+})();
 
 // Install Modal Logic
 let deferredPrompt;
@@ -572,26 +584,32 @@ const modalCloseBtn = document.getElementById('modalCloseBtn');
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    installHeaderBtn.style.display = 'block';
+    if (installHeaderBtn) installHeaderBtn.style.display = 'block';
 });
 
-installHeaderBtn.addEventListener('click', () => {
-    installModal.style.display = 'block';
-});
+if (installHeaderBtn) {
+    installHeaderBtn.addEventListener('click', () => {
+        if (installModal) installModal.style.display = 'block';
+    });
+}
 
-modalInstallBtn.addEventListener('click', async () => {
-    installModal.style.display = 'none';
-    if (deferredPrompt) {
-        deferredPrompt.prompt();
-        const result = await deferredPrompt.userChoice;
-        deferredPrompt = null;
-        installHeaderBtn.style.display = 'none';
-    }
-});
+if (modalInstallBtn) {
+    modalInstallBtn.addEventListener('click', async () => {
+        if (installModal) installModal.style.display = 'none';
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const result = await deferredPrompt.userChoice;
+            deferredPrompt = null;
+            if (installHeaderBtn) installHeaderBtn.style.display = 'none';
+        }
+    });
+}
 
-modalCloseBtn.addEventListener('click', () => {
-    installModal.style.display = 'none';
-});
+if (modalCloseBtn) {
+    modalCloseBtn.addEventListener('click', () => {
+        if (installModal) installModal.style.display = 'none';
+    });
+}
 
 window.addEventListener('click', (e) => {
     if (e.target === installModal) {
@@ -606,11 +624,14 @@ window.addEventListener('click', (e) => {
 });
 
 // Version check button
-document.getElementById('checkVersionBtn').addEventListener('click', () => {
-    if (typeof manualVersionCheck === 'function') {
-        manualVersionCheck();
-    }
-});
+const checkVersionBtn = document.getElementById('checkVersionBtn');
+if (checkVersionBtn) {
+    checkVersionBtn.addEventListener('click', () => {
+        if (typeof manualVersionCheck === 'function') {
+            manualVersionCheck();
+        }
+    });
+}
 </script>
 
 </body>
