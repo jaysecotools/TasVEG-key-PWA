@@ -3,16 +3,17 @@
 
 const APP_VERSION = "8.0.1";
 
-let map = L.map('map').setView([-42, 147], 6);
+// Global variables
+let map;
 let marker;
 let currentLatLng = null;
 let photos = [];
-let currentResults = []; // Store structured results for decision record
+let currentResults = [];
 
 // ===== DEBUG MODE =====
-const DEBUG_MODE = false;  // Set to true to see console logs
+const DEBUG_MODE = false;
 
-// ===== WEIGHTS - REDUCED FOR REALISTIC SCORES =====
+// ===== WEIGHTS =====
 const WEIGHTS = {
     structure: 2,
     moisture: 2,
@@ -1487,23 +1488,40 @@ const assemblageRules = [
     }
 ];
 
-// ===== MAP =====
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap'
-}).addTo(map);
 
-// CLICK TO DROP MARKER
-map.on('click', e => {
-    setMarker(e.latlng.lat, e.latlng.lng);
-});
+// ===== INITIALIZE MAP =====
+function initMap() {
+    if (!document.getElementById('map')) {
+        console.error('Map element not found');
+        return;
+    }
+    
+    map = L.map('map').setView([-42, 147], 6);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+    }).addTo(map);
+    
+    // Click handler
+    map.on('click', function(e) {
+        setMarker(e.latlng.lat, e.latlng.lng);
+    });
+    
+    console.log('Map initialized');
+}
 
+// Set marker at specific coordinates
 function setMarker(lat, lon) {
     currentLatLng = { lat, lon };
 
-    if (marker) map.removeLayer(marker);
+    if (marker) {
+        map.removeLayer(marker);
+    }
+    
     marker = L.marker([lat, lon], { draggable: true }).addTo(map);
 
-    marker.on('dragend', e => {
+    marker.on('dragend', function(e) {
         const pos = e.target.getLatLng();
         currentLatLng = { lat: pos.lat, lon: pos.lng };
         document.getElementById("coords").innerText = pos.lat.toFixed(5) + ", " + pos.lng.toFixed(5);
@@ -1515,26 +1533,47 @@ function setMarker(lat, lon) {
     inferElevationBand(lat);
 }
 
+// Infer elevation from latitude
 function inferElevationBand(latitude) {
     const absLat = Math.abs(latitude);
+    const hintEl = document.getElementById("elevationHint");
+    if (!hintEl) return;
+    
     if (absLat > 42.5) {
-        document.getElementById("elevationHint").innerHTML = "📍 High elevation likely";
+        hintEl.innerHTML = "📍 High elevation likely";
     } else if (absLat > 41.5) {
-        document.getElementById("elevationHint").innerHTML = "📍 Mid elevation possible";
+        hintEl.innerHTML = "📍 Mid elevation possible";
     } else {
-        document.getElementById("elevationHint").innerHTML = "📍 Lowland area";
+        hintEl.innerHTML = "📍 Lowland area";
     }
 }
 
-// GPS
+// GPS location
 function getLocation() {
-    navigator.geolocation.getCurrentPosition(pos => {
-        setMarker(pos.coords.latitude, pos.coords.longitude);
-    });
+    if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser");
+        return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+        function(pos) {
+            setMarker(pos.coords.latitude, pos.coords.longitude);
+        },
+        function(err) {
+            alert("Could not get location: " + err.message);
+        }
+    );
 }
 
-// PHOTO COMPRESSION
-document.getElementById("photoInput").addEventListener("change", async e => {
+// ===== PHOTO HANDLING =====
+document.addEventListener('DOMContentLoaded', function() {
+    const photoInput = document.getElementById("photoInput");
+    if (photoInput) {
+        photoInput.addEventListener("change", handlePhotoUpload);
+    }
+});
+
+async function handlePhotoUpload(e) {
     const files = [...e.target.files];
 
     for (let file of files) {
@@ -1543,12 +1582,15 @@ document.getElementById("photoInput").addEventListener("change", async e => {
 
         let img = document.createElement("img");
         img.src = compressed;
-        document.getElementById("photoPreview").appendChild(img);
+        const preview = document.getElementById("photoPreview");
+        if (preview) {
+            preview.appendChild(img);
+        }
     }
-});
+}
 
 function compress(file, quality) {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
         const img = new Image();
         img.src = URL.createObjectURL(file);
 
@@ -1561,6 +1603,7 @@ function compress(file, quality) {
             canvas.height = img.height * scale;
 
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            URL.revokeObjectURL(img.src);
             resolve(canvas.toDataURL("image/jpeg", quality));
         };
     });
@@ -1574,7 +1617,6 @@ function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
     let assemblageBonuses = [];
     
     for (let rule of assemblageRules) {
-        // 1. APPLY EXCLUSIONS
         let isExcluded = false;
         
         if (rule.excludeMoisture && rule.excludeMoisture.length > 0) {
@@ -1595,15 +1637,8 @@ function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
             }
         }
         
-        if (!isExcluded && rule.excludeDominant && rule.excludeDominant.length > 0) {
-            if (inputs.dominant && rule.excludeDominant.includes(inputs.dominant)) {
-                isExcluded = true;
-            }
-        }
-        
         if (isExcluded) continue;
         
-        // 2. APPLY REQUIRED CONDITIONS
         let requirementsMet = true;
         
         if (rule.requireMoisture && rule.requireMoisture.length > 0) {
@@ -1618,15 +1653,8 @@ function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
             }
         }
         
-        if (requirementsMet && rule.requireStructure && rule.requireStructure.length > 0) {
-            if (!inputs.structure || !rule.requireStructure.includes(inputs.structure)) {
-                requirementsMet = false;
-            }
-        }
-        
         if (!requirementsMet) continue;
         
-        // 3. MATCH SPECIES
         let matches = 0;
         let matchedSpecies = [];
         
@@ -1656,7 +1684,6 @@ function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
             }
         }
         
-        // 4. CALCULATE BONUS
         if (matches >= rule.minMatches) {
             let bonus = rule.bonus;
             
@@ -1707,7 +1734,7 @@ function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
     }
     
     if (DEBUG_MODE) {
-        console.log(`🏆 Assemblage detected: ${best.name} (bonus: +${best.bonus}, matches: ${best.matches}/${best.requiredMatches})`);
+        console.log(`🏆 Assemblage detected: ${best.name} (bonus: +${best.bonus})`);
     }
     
     return best;
@@ -1743,30 +1770,6 @@ function applyHardExclusions(comm, inputs, environmentalContext) {
         isHardExcluded = true;
     }
     
-    if (inputs.moisture === "coastal" && comm.traits.moisture === "alpine") {
-        penalty -= 12;
-        reasons.push("❌ HARD EXCLUSION: Coastal and alpine are mutually exclusive");
-        isHardExcluded = true;
-    }
-    
-    if (inputs.moisture === "alpine" && comm.traits.moisture === "coastal") {
-        penalty -= 12;
-        reasons.push("❌ HARD EXCLUSION: Alpine and coastal are mutually exclusive");
-        isHardExcluded = true;
-    }
-
-    if (inputs.dominant === "buttongrass" && !comm.code.startsWith("MB")) {
-        penalty -= 6;
-        reasons.push("❌ EXCLUSION: Buttongrass dominant only matches Buttongrass Moorland");
-        isHardExcluded = true;
-    }
-    
-    if (inputs.dominant === "rainforest" && comm.traits.dominant !== "rainforest") {
-        penalty -= 8;
-        reasons.push("❌ EXCLUSION: Rainforest dominant only matches Rainforest communities");
-        isHardExcluded = true;
-    }
-
     if (inputs.elevation === "high" && comm.traits.elevation === "low") {
         penalty -= 5;
         reasons.push("❌ EXCLUSION: Elevation mismatch (high vs low)");
@@ -1784,12 +1787,6 @@ function applyHardExclusions(comm, inputs, environmentalContext) {
         reasons.push("❌ EXCLUSION: Well-drained site cannot be waterlogged community");
         isHardExcluded = true;
     }
-    
-    if (environmentalContext.fire_history === "recent" && (comm.traits.dominant === "rainforest")) {
-        penalty -= 10;
-        reasons.push("❌ EXCLUSION: Rainforest cannot survive recent fire");
-        isHardExcluded = true;
-    }
 
     return { penalty, reasons, isHardExcluded };
 }
@@ -1799,7 +1796,6 @@ function scoreCommunity(comm, inputs, environmentalContext) {
     let score = 0;
     let reasons = [];
 
-    // Trait matching
     for (let key in comm.traits) {
         let weight = WEIGHTS[key] || 1;
 
@@ -1813,7 +1809,6 @@ function scoreCommunity(comm, inputs, environmentalContext) {
         }
     }
 
-    // Species matching
     if (inputs.species && inputs.species.length > 0 && comm.species) {
         inputs.species.forEach(obs => {
             comm.species.forEach(sp => {
@@ -1826,18 +1821,12 @@ function scoreCommunity(comm, inputs, environmentalContext) {
         });
     }
 
-    // Assemblage detection
     let assemblage = detectAssemblage(inputs.species || [], inputs, environmentalContext);
     if (assemblage && comm.traits.assemblage === assemblage.name) {
         score += assemblage.bonus;
-        reasons.push(`🏆 ASSEMBLAGE LOCK: ${assemblage.name} detected! (+${assemblage.bonus})`);
-    } else if (assemblage && assemblage.name === "rainforest" && comm.traits.assemblage === "rainforest_edge") {
-        let bonus = Math.round(assemblage.bonus * 0.6);
-        score += bonus;
-        reasons.push(`🌿 Rainforest assemblage suggests rainforest-edge community (+${bonus})`);
+        reasons.push(`🏆 ASSEMBLAGE: ${assemblage.name} (+${assemblage.bonus})`);
     }
 
-    // Exclusions
     let exclusion = applyHardExclusions(comm, inputs, environmentalContext);
     score += exclusion.penalty;
     reasons = reasons.concat(exclusion.reasons);
@@ -1888,18 +1877,12 @@ function runAnalysis() {
         return;
     }
     
-    const structureEl = document.getElementById("structure");
-    const moistureEl = document.getElementById("moisture");
-    const dominantEl = document.getElementById("dominant");
-    const elevationEl = document.getElementById("elevation");
-    const speciesEl = document.getElementById("species");
-
     const inputs = {
-        structure: structureEl.value,
-        moisture: moistureEl.value,
-        dominant: dominantEl.value,
-        elevation: elevationEl.value,
-        species: speciesEl.value.split(",").map(s => s.trim()).filter(Boolean)
+        structure: document.getElementById("structure").value,
+        moisture: document.getElementById("moisture").value,
+        dominant: document.getElementById("dominant").value,
+        elevation: document.getElementById("elevation").value,
+        species: document.getElementById("species").value.split(",").map(s => s.trim()).filter(Boolean)
     };
     
     const environmentalContext = getEnvironmentalContext();
@@ -1910,7 +1893,6 @@ function runAnalysis() {
             code: c.code, 
             name: c.name, 
             rawScore: r.score,
-            score: r.score,
             reasons: r.reasons,
             isHardExcluded: r.isHardExcluded
         };
@@ -1918,7 +1900,6 @@ function runAnalysis() {
     .filter(r => !r.isHardExcluded)
     .sort((a, b) => b.rawScore - a.rawScore);
     
-    // Store structured results for decision record
     currentResults = results.map(r => {
         const conf = getConfidence(r.rawScore);
         return {
@@ -1965,24 +1946,13 @@ function runAnalysis() {
                 </div>
             `;
         });
-        
-        // Add assemblage summary
-        const assemblage = detectAssemblage(inputs.species || [], inputs, environmentalContext);
-        if (assemblage) {
-            html += `
-                <div style="background:#e8f5e9; padding:10px; border-radius:8px; margin-top:10px;">
-                    <strong>🏆 Assemblage Detected:</strong> ${assemblage.name.toUpperCase()} 
-                    (bonus: +${assemblage.bonus})
-                </div>
-            `;
-        }
     }
     
     html += `</div>`;
     document.getElementById("results").innerHTML = html;
 }
 
-// ===== EXPORT DECISION RECORD =====
+// ===== EXPORT FUNCTIONS =====
 function exportDecisionRecord() {
     if (!currentResults.length) {
         alert("No analysis results to export. Run analysis first.");
@@ -2062,5 +2032,27 @@ async function saveRecord() {
     alert("✅ Record saved offline as decision record!");
 }
 
-// Display version in header
-document.getElementById('versionDisplay').textContent = `v${APP_VERSION}`;
+// ===== INITIALIZE ON PAGE LOAD =====
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize map
+    if (typeof L !== 'undefined') {
+        initMap();
+    } else {
+        console.error('Leaflet not loaded');
+    }
+    
+    // Display version
+    const versionDisplay = document.getElementById('versionDisplay');
+    if (versionDisplay) {
+        versionDisplay.textContent = `v${APP_VERSION}`;
+    }
+});
+
+// Make functions global
+window.setMarker = setMarker;
+window.getLocation = getLocation;
+window.runAnalysis = runAnalysis;
+window.saveRecord = saveRecord;
+window.exportDecisionRecord = exportDecisionRecord;
+window.copyDecisionSummary = copyDecisionSummary;
+window.getEnvironmentalContext = getEnvironmentalContext;
