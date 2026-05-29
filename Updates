@@ -1,158 +1,181 @@
-const assemblageRules = [
-    // ===== RAINFOREST ASSEMBLAGES =====
-    {
-        name: "rainforest",
-        description: "Cool temperate rainforest",
-        species: ["Nothofagus cunninghamii", "Atherosperma moschatum", "Athrotaxis selaginoides", 
-                  "Athrotaxis cupressoides", "Lagarostrobos franklinii", "Eucryphia lucida", 
-                  "Phyllocladus aspleniifolius", "Anodopetalum biglandulosum", "Eucryphia milliganii"],
-        minMatches: 2,
-        bonus: 20,
-        maxBonus: 30,
-        bonusPerExtraMatch: 2,
-        requireMoisture: ["wet"],
-        requireElevation: ["low", "mid", "high"],
-        excludeMoisture: ["dry", "coastal"],
-        excludeElevation: [],
-        traitMatch: { dominant: "rainforest" }
-    },
-    {
-        name: "rainforest_edge",
-        description: "Rainforest edge or successional scrub",
-        species: ["Nothofagus cunninghamii", "Leptospermum lanigerum", "Leptospermum scoparium", 
-                  "Atherosperma moschatum", "Eucryphia lucida", "Pomaderris apetala", "Olearia argophylla"],
-        minMatches: 2,
-        bonus: 12,
-        maxBonus: 22,
-        bonusPerExtraMatch: 1,
-        requireMoisture: ["wet"],
-        excludeMoisture: ["dry"],
-        traitMatch: { structure: "scrub" }
-    },
+Ah, my apologies for the confusion! You're right - I misunderstood your question.
 
-    // ===== WET FOREST ASSEMBLAGES =====
-    {
-        name: "wet_forest",
-        description: "Wet eucalypt forest",
-        species: ["Eucalyptus obliqua", "Eucalyptus regnans", "Eucalyptus tasmaniensis", "Eucalyptus nitida",
-                  "Eucalyptus globulus", "Eucalyptus brookeriana", "Eucalyptus delegatensis", 
-                  "Dicksonia antarctica", "Atherosperma moschatum", "Pomaderris apetala", "Olearia argophylla"],
-        minMatches: 2,
-        bonus: 15,
-        maxBonus: 25,
-        bonusPerExtraMatch: 2,
-        requireMoisture: ["wet"],
-        requireStructure: ["forest"],
-        excludeMoisture: ["dry", "coastal"],
-        traitMatch: { dominant: "eucalypt", moisture: "wet" }
-    },
+Yes, the detectAssemblage function I gave you earlier was a basic version. Let me give you the complete, production-ready version that properly integrates with your scoring system and the enhanced assemblage rules:
 
-    // ===== DRY FOREST ASSEMBLAGES =====
-    {
-        name: "dry_forest",
-        description: "Dry eucalypt forest",
-        species: ["Eucalyptus amygdalina", "Eucalyptus pulchella", "Eucalyptus tenuiramis", "Eucalyptus viminalis",
-                  "Eucalyptus pauciflora", "Eucalyptus ovata", "Eucalyptus sieberi", "Eucalyptus coccifera",
-                  "Banksia marginata", "Allocasuarina verticillata", "Themeda triandra"],
-        minMatches: 2,
-        bonus: 15,
-        maxBonus: 25,
-        bonusPerExtraMatch: 2,
-        requireMoisture: ["dry"],
-        requireStructure: ["forest", "woodland"],
-        excludeMoisture: ["wet", "waterlogged"],
-        traitMatch: { dominant: "eucalypt", moisture: "dry" }
-    },
-
-    // ===== COASTAL ASSEMBLAGES =====
-    {
-        name: "coastal",
-        description: "Coastal vegetation",
-        species: ["Spinifex sericeus", "Austrofestuca littoralis", "Leucopogon parviflorus", "Acacia longifolia",
-                  "Myoporum insulare", "Correa alba", "Westringia brevifolia", "Rhagodia candolleana",
-                  "Carpobrotus rossii", "Disphyma crassifolium", "Salicornia quinqueflora"],
-        minMatches: 2,
-        bonus: 15,
-        maxBonus: 25,
-        bonusPerExtraMatch: 2,
-        requireMoisture: ["coastal"],
-        excludeMoisture: ["alpine", "waterlogged"],
-        traitMatch: { moisture: "coastal" }
-    },
-
-    // ===== WETLAND ASSEMBLAGES =====
-    {
-        name: "wetland",
-        description: "Wetland vegetation",
-        species: ["Gymnoschoenus sphaerocephalus", "Melaleuca ericifolia", "Melaleuca squarrosa", 
-                  "Sphagnum cristatum", "Baumea spp.", "Juncus kraussii", "Juncus spp.", "Carex spp.",
-                  "Leptospermum lanigerum", "Empodisma minus", "Phragmites australis", "Eleocharis spp."],
-        minMatches: 2,
-        bonus: 15,
-        maxBonus: 25,
-        bonusPerExtraMatch: 2,
-        requireMoisture: ["waterlogged"],
-        excludeMoisture: ["dry", "coastal"],
-        traitMatch: { moisture: "waterlogged" }
-    },
-
-    // ===== ALPINE ASSEMBLAGES =====
-    {
-        name: "alpine",
-        description: "Alpine vegetation",
-        species: ["Richea scoparia", "Donatia novae-zelandiae", "Podocarpus lawrencei", "Abrotanella forsteroides",
-                  "Pterygopappus lawrencei", "Dracophyllum minimum", "Orites revoluta", "Orites acicularis",
-                  "Microcachrys tetragona", "Diselma archeri", "Poa gunnii", "Celmisia asteliifolia"],
-        minMatches: 2,
-        bonus: 20,
-        maxBonus: 30,
-        bonusPerExtraMatch: 2,
-        requireElevation: ["high"],
-        requireMoisture: ["alpine"],
-        excludeMoisture: ["dry", "wet", "coastal"],
-        excludeElevation: ["low", "mid"],
-        traitMatch: { elevation: "high", moisture: "alpine" }
-    },
-
-    // ===== GRASSLAND ASSEMBLAGES =====
-    {
-        name: "grassland",
-        description: "Native grassland",
-        species: ["Themeda triandra", "Poa labillardierei", "Poa rodwayi", "Austrostipa spp.", "Rytidosperma spp.",
-                  "Poa gunnii", "Austrostipa stipoides", "Poa poiformis", "Spinifex sericeus"],
-        minMatches: 2,
-        bonus: 12,
-        maxBonus: 22,
-        bonusPerExtraMatch: 1,
-        requireStructure: ["treeless"],
-        excludeMoisture: ["waterlogged"],
-        traitMatch: { dominant: "grass", structure: "treeless" }
-    },
-
-    // ===== MACQUARIE ISLAND =====
-    {
-        name: "macquarie_coastal",
-        description: "Macquarie Island coastal",
-        species: ["Poa foliosa", "Stilbocarpa polaris", "Pleurophyllum hookeri", "Agrostis magellanica",
-                  "Acaena magellanica", "Juncus scheuchzerioides", "Hydrocotyle nova-zeelandiae",
-                  "Azorella macquariensis"],
-        minMatches: 2,
-        bonus: 15,
-        maxBonus: 25,
-        bonusPerExtraMatch: 2,
-        traitMatch: { assemblage: "coastal" }
-    },
-
-    // ===== MODIFIED ASSEMBLAGES =====
-    {
-        name: "modified",
-        description: "Modified or non-native vegetation",
-        species: ["Lolium spp.", "Trifolium spp.", "Pinus radiata", "Ulex europaeus", "Rubus fruticosus",
-                  "Salix fragilis", "Ammophila arenaria", "Spartina anglica", "Erica lusitanica"],
-        minMatches: 1,
-        bonus: 10,
-        maxBonus: 20,
-        bonusPerExtraMatch: 2,
-        traitMatch: { dominant: "exotic" }
+```javascript
+function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
+    if (!speciesList || speciesList.length === 0) return null;
+    
+    let assemblageBonuses = [];
+    
+    for (let rule of assemblageRules) {
+        // ===== 1. APPLY EXCLUSIONS =====
+        let isExcluded = false;
+        
+        // Check moisture exclusions
+        if (rule.excludeMoisture && rule.excludeMoisture.length > 0) {
+            if (inputs.moisture && rule.excludeMoisture.includes(inputs.moisture)) {
+                isExcluded = true;
+            }
+        }
+        
+        // Check elevation exclusions
+        if (!isExcluded && rule.excludeElevation && rule.excludeElevation.length > 0) {
+            if (inputs.elevation && rule.excludeElevation.includes(inputs.elevation)) {
+                isExcluded = true;
+            }
+        }
+        
+        // Check structure exclusions
+        if (!isExcluded && rule.excludeStructure && rule.excludeStructure.length > 0) {
+            if (inputs.structure && rule.excludeStructure.includes(inputs.structure)) {
+                isExcluded = true;
+            }
+        }
+        
+        // Check dominant exclusions
+        if (!isExcluded && rule.excludeDominant && rule.excludeDominant.length > 0) {
+            if (inputs.dominant && rule.excludeDominant.includes(inputs.dominant)) {
+                isExcluded = true;
+            }
+        }
+        
+        if (isExcluded) continue;
+        
+        // ===== 2. APPLY REQUIRED CONDITIONS =====
+        let requirementsMet = true;
+        
+        // Check required moisture
+        if (rule.requireMoisture && rule.requireMoisture.length > 0) {
+            if (!inputs.moisture || !rule.requireMoisture.includes(inputs.moisture)) {
+                requirementsMet = false;
+            }
+        }
+        
+        // Check required elevation
+        if (requirementsMet && rule.requireElevation && rule.requireElevation.length > 0) {
+            if (!inputs.elevation || !rule.requireElevation.includes(inputs.elevation)) {
+                requirementsMet = false;
+            }
+        }
+        
+        // Check required structure
+        if (requirementsMet && rule.requireStructure && rule.requireStructure.length > 0) {
+            if (!inputs.structure || !rule.requireStructure.includes(inputs.structure)) {
+                requirementsMet = false;
+            }
+        }
+        
+        if (!requirementsMet) continue;
+        
+        // ===== 3. MATCH SPECIES =====
+        let matches = 0;
+        let matchedSpecies = [];
+        
+        for (let userSp of speciesList) {
+            const userSpLower = userSp.toLowerCase().trim();
+            
+            for (let ruleSp of rule.species) {
+                const ruleSpLower = ruleSp.toLowerCase();
+                
+                // Handle wildcard matching for genus-level rules (e.g., "Baumea spp.")
+                let isMatch = false;
+                if (ruleSpLower.endsWith(' spp.')) {
+                    const genus = ruleSpLower.replace(' spp.', '');
+                    if (userSpLower.includes(genus)) {
+                        isMatch = true;
+                    }
+                } else {
+                    // Standard matching
+                    if (userSpLower.includes(ruleSpLower) || ruleSpLower.includes(userSpLower)) {
+                        isMatch = true;
+                    }
+                }
+                
+                if (isMatch && !matchedSpecies.includes(ruleSp)) {
+                    matches++;
+                    matchedSpecies.push(ruleSp);
+                    break; // Count each user species once per rule
+                }
+            }
+        }
+        
+        // ===== 4. CALCULATE BONUS =====
+        if (matches >= rule.minMatches) {
+            let bonus = rule.bonus;
+            
+            // Bonus for extra matches beyond minimum
+            if (rule.bonusPerExtraMatch && matches > rule.minMatches) {
+                bonus += (matches - rule.minMatches) * rule.bonusPerExtraMatch;
+            }
+            
+            // Bonus for trait matches from user inputs
+            let traitBonus = 0;
+            if (rule.traitMatch) {
+                for (let [traitKey, expectedValue] of Object.entries(rule.traitMatch)) {
+                    if (inputs[traitKey] === expectedValue) {
+                        traitBonus += 5;
+                    }
+                    // Also check environmental context
+                    if (environmentalContext[traitKey] === expectedValue) {
+                        traitBonus += 3;
+                    }
+                }
+            }
+            
+            bonus += traitBonus;
+            
+            // Apply maximum bonus cap
+            const maxBonus = rule.maxBonus || 35;
+            bonus = Math.min(bonus, maxBonus);
+            
+            assemblageBonuses.push({
+                name: rule.name,
+                description: rule.description || rule.name,
+                bonus: bonus,
+                matches: matches,
+                requiredMatches: rule.minMatches,
+                matchedSpecies: matchedSpecies,
+                traitBonus: traitBonus
+            });
+        }
     }
-];
+    
+    // ===== 5. RETURN BEST MATCH =====
+    if (assemblageBonuses.length === 0) return null;
+    
+    // Sort by bonus (highest first), then by match count
+    assemblageBonuses.sort((a, b) => {
+        if (a.bonus !== b.bonus) return b.bonus - a.bonus;
+        return b.matches - a.matches;
+    });
+    
+    const best = assemblageBonuses[0];
+    
+    // Optional: Store secondary matches for debugging/display
+    if (assemblageBonuses.length > 1) {
+        best.alternatives = assemblageBonuses.slice(1, 4);
+    }
+    
+    return best;
+}
+```
+
+What this enhanced version adds:
+
+1. Proper exclusion handling - Respects excludeMoisture, excludeElevation, excludeStructure, excludeDominant
+2. Required conditions - Uses requireMoisture, requireElevation, requireStructure from your rules
+3. Wildcard matching - Handles "Baumea spp." type entries - matches any species starting with "Baumea"
+4. Bonus multipliers - Supports bonusPerExtraMatch for exceeding minimum species matches
+5. Trait bonus from environmental context - Also checks the environmentalContext object you pass in
+6. Alternative results - Stores secondary matches for potential display in UI
+7. Maximum bonus capping - Respects maxBonus so scores don't get unreasonably high
+
+To use it with your scoring system, make sure you're passing the environmentalContext when calling it:
+
+```javascript
+// In your scoreCommunity function, update the call:
+let assemblage = detectAssemblage(inputs.species || [], inputs, environmentalContext);
+```
+
+The basic version would work, but this complete version is much more accurate for the full 163-community dataset!
