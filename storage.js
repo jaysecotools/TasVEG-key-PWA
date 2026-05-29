@@ -1,46 +1,86 @@
-let db;
-const req = indexedDB.open("tasvegDB", 1);
+// storage.js - Updated for decision records
 
-req.onupgradeneeded = e => {
-    db = e.target.result;
-    if (!db.objectStoreNames.contains("records")) {
-        db.createObjectStore("records", { keyPath: "id" });
-    }
-};
+const DB_NAME = 'tasveg_db';
+const DB_VERSION = 2; // Incremented for schema change
+const STORE_NAME = 'records';
 
-req.onsuccess = e => {
-    db = e.target.result;
-};
+let db = null;
 
-req.onerror = e => {
-    console.error("IndexedDB error:", e.target.error);
-};
-
-function saveToDB(record) {
+function openDB() {
     return new Promise((resolve, reject) => {
-        if (!db) {
-            reject("Database not ready");
+        if (db) {
+            resolve(db);
             return;
         }
-        const tx = db.transaction("records", "readwrite");
-        const store = tx.objectStore("records");
-        const request = store.put(record);
-        request.onsuccess = () => resolve();
+        
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        
         request.onerror = () => reject(request.error);
-        tx.oncomplete = () => resolve();
+        request.onsuccess = () => {
+            db = request.result;
+            resolve(db);
+        };
+        
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                store.createIndex('timestamp', 'timestamp', { unique: false });
+                store.createIndex('location_lat', 'location.lat', { unique: false });
+            }
+        };
     });
 }
 
-function getAllRecords() {
+async function saveToDB(record) {
+    const database = await openDB();
+    
     return new Promise((resolve, reject) => {
-        if (!db) {
-            reject("Database not ready");
-            return;
-        }
-        const tx = db.transaction("records", "readonly");
-        const store = tx.objectStore("records");
+        const transaction = database.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.put(record);
+        
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function getAllRecords() {
+    const database = await openDB();
+    
+    return new Promise((resolve, reject) => {
+        const transaction = database.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
         const request = store.getAll();
+        
         request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function getRecord(id) {
+    const database = await openDB();
+    
+    return new Promise((resolve, reject) => {
+        const transaction = database.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(id);
+        
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function deleteRecord(id) {
+    const database = await openDB();
+    
+    return new Promise((resolve, reject) => {
+        const transaction = database.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.delete(id);
+        
+        request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
     });
 }
