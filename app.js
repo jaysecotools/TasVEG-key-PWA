@@ -1,5 +1,7 @@
-// app.js - Enhanced with decision records, environmental context, assemblage logic
+// app.js - Enhanced with decision records, environmental context, version checking
 // WITHOUT datasets - add your communities and assemblageRules arrays back in
+
+const APP_VERSION = "8.0.1";
 
 let map = L.map('map').setView([-42, 147], 6);
 let marker;
@@ -23,87 +25,8 @@ const WEIGHTS = {
     disturbance: 0.5
 };
 
-const SPECIES_WEIGHT = 2;  // Reduced from 6 to prevent score inflation
+const SPECIES_WEIGHT = 2;
 const ASSEMBLAGE_BONUS_MAX = 20;
-
-// ===== MAP =====
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap'
-}).addTo(map);
-
-// CLICK TO DROP MARKER
-map.on('click', e => {
-    setMarker(e.latlng.lat, e.latlng.lng);
-});
-
-function setMarker(lat, lon) {
-    currentLatLng = { lat, lon };
-
-    if (marker) map.removeLayer(marker);
-    marker = L.marker([lat, lon], { draggable: true }).addTo(map);
-
-    marker.on('dragend', e => {
-        const pos = e.target.getLatLng();
-        currentLatLng = { lat: pos.lat, lon: pos.lng };
-        document.getElementById("coords").innerText = pos.lat.toFixed(5) + ", " + pos.lng.toFixed(5);
-        inferElevationBand(pos.lat);
-    });
-
-    document.getElementById("coords").innerText = lat.toFixed(5) + ", " + lon.toFixed(5);
-    map.setView([lat, lon], 14);
-    inferElevationBand(lat);
-}
-
-function inferElevationBand(latitude) {
-    const absLat = Math.abs(latitude);
-    if (absLat > 42.5) {
-        document.getElementById("elevationHint").innerHTML = "📍 High elevation likely";
-    } else if (absLat > 41.5) {
-        document.getElementById("elevationHint").innerHTML = "📍 Mid elevation possible";
-    } else {
-        document.getElementById("elevationHint").innerHTML = "📍 Lowland area";
-    }
-}
-
-// GPS
-function getLocation() {
-    navigator.geolocation.getCurrentPosition(pos => {
-        setMarker(pos.coords.latitude, pos.coords.longitude);
-    });
-}
-
-// PHOTO COMPRESSION
-document.getElementById("photoInput").addEventListener("change", async e => {
-    const files = [...e.target.files];
-
-    for (let file of files) {
-        const compressed = await compress(file, 0.6);
-        photos.push(compressed);
-
-        let img = document.createElement("img");
-        img.src = compressed;
-        document.getElementById("photoPreview").appendChild(img);
-    }
-});
-
-function compress(file, quality) {
-    return new Promise(resolve => {
-        const img = new Image();
-        img.src = URL.createObjectURL(file);
-
-        img.onload = () => {
-            const canvas = document.createElement("canvas");
-            const ctx = canvas.getContext("2d");
-
-            const scale = 800 / img.width;
-            canvas.width = 800;
-            canvas.height = img.height * scale;
-
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            resolve(canvas.toDataURL("image/jpeg", quality));
-        };
-    });
-}
 
 // COMPLETE TASVEG DATASET - ALL 163 COMMUNITIES
 // Based on "From Forest to Fjaeldmark" Edition 2 documentation
@@ -1564,9 +1487,89 @@ const assemblageRules = [
     }
 ];
 
+// ===== MAP =====
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+}).addTo(map);
+
+// CLICK TO DROP MARKER
+map.on('click', e => {
+    setMarker(e.latlng.lat, e.latlng.lng);
+});
+
+function setMarker(lat, lon) {
+    currentLatLng = { lat, lon };
+
+    if (marker) map.removeLayer(marker);
+    marker = L.marker([lat, lon], { draggable: true }).addTo(map);
+
+    marker.on('dragend', e => {
+        const pos = e.target.getLatLng();
+        currentLatLng = { lat: pos.lat, lon: pos.lng };
+        document.getElementById("coords").innerText = pos.lat.toFixed(5) + ", " + pos.lng.toFixed(5);
+        inferElevationBand(pos.lat);
+    });
+
+    document.getElementById("coords").innerText = lat.toFixed(5) + ", " + lon.toFixed(5);
+    map.setView([lat, lon], 14);
+    inferElevationBand(lat);
+}
+
+function inferElevationBand(latitude) {
+    const absLat = Math.abs(latitude);
+    if (absLat > 42.5) {
+        document.getElementById("elevationHint").innerHTML = "📍 High elevation likely";
+    } else if (absLat > 41.5) {
+        document.getElementById("elevationHint").innerHTML = "📍 Mid elevation possible";
+    } else {
+        document.getElementById("elevationHint").innerHTML = "📍 Lowland area";
+    }
+}
+
+// GPS
+function getLocation() {
+    navigator.geolocation.getCurrentPosition(pos => {
+        setMarker(pos.coords.latitude, pos.coords.longitude);
+    });
+}
+
+// PHOTO COMPRESSION
+document.getElementById("photoInput").addEventListener("change", async e => {
+    const files = [...e.target.files];
+
+    for (let file of files) {
+        const compressed = await compress(file, 0.6);
+        photos.push(compressed);
+
+        let img = document.createElement("img");
+        img.src = compressed;
+        document.getElementById("photoPreview").appendChild(img);
+    }
+});
+
+function compress(file, quality) {
+    return new Promise(resolve => {
+        const img = new Image();
+        img.src = URL.createObjectURL(file);
+
+        img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            const scale = 800 / img.width;
+            canvas.width = 800;
+            canvas.height = img.height * scale;
+
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+    });
+}
+
 // ===== ASSEMBLAGE DETECTION =====
 function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
     if (!speciesList || speciesList.length === 0) return null;
+    if (!assemblageRules.length) return null;
     
     let assemblageBonuses = [];
     
@@ -1758,7 +1761,7 @@ function applyHardExclusions(comm, inputs, environmentalContext) {
         isHardExcluded = true;
     }
     
-    if (inputs.dominant === "rainforest" && comm.traits.dominant !== "rainforest" && comm.code !== "ROS" && comm.code !== "SRF") {
+    if (inputs.dominant === "rainforest" && comm.traits.dominant !== "rainforest") {
         penalty -= 8;
         reasons.push("❌ EXCLUSION: Rainforest dominant only matches Rainforest communities");
         isHardExcluded = true;
@@ -1776,37 +1779,16 @@ function applyHardExclusions(comm, inputs, environmentalContext) {
         isHardExcluded = true;
     }
 
-    if (inputs.dominant === "paperbark" && comm.traits.dominant !== "paperbark") {
-        penalty -= 5;
-        reasons.push("❌ EXCLUSION: Paperbark indicates Swamp Paperbark Forest");
-        isHardExcluded = true;
-    }
-
-    if (environmentalContext.substrate === "limestone" && comm.code && comm.code.startsWith("MB")) {
-        penalty -= 6;
-        reasons.push("❌ EXCLUSION: Buttongrass rarely occurs on limestone");
-    }
-    
     if (environmentalContext.drainage === "well_drained" && comm.traits.moisture === "waterlogged") {
         penalty -= 6;
         reasons.push("❌ EXCLUSION: Well-drained site cannot be waterlogged community");
         isHardExcluded = true;
     }
     
-    if (environmentalContext.drainage === "poor" && (comm.traits.moisture === "dry" || comm.traits.moisture === "coastal")) {
-        penalty -= 4;
-        reasons.push("⚠ Poor drainage conflicts with dry/coastal community");
-    }
-    
-    if (environmentalContext.fire_history === "recent" && (comm.traits.dominant === "rainforest" || comm.code === "RKP" || comm.code === "RPP")) {
+    if (environmentalContext.fire_history === "recent" && (comm.traits.dominant === "rainforest")) {
         penalty -= 10;
         reasons.push("❌ EXCLUSION: Rainforest cannot survive recent fire");
         isHardExcluded = true;
-    }
-    
-    if (environmentalContext.disturbance === "cleared" && comm.traits.structure === "forest") {
-        penalty -= 6;
-        reasons.push("⚠ Cleared site unlikely to be intact forest");
     }
 
     return { penalty, reasons, isHardExcluded };
@@ -1896,6 +1878,16 @@ function getEnvironmentalContext() {
 
 // ===== RUN ANALYSIS =====
 function runAnalysis() {
+    if (!communities.length) {
+        document.getElementById("results").innerHTML = `
+            <div class="card">
+                <h3>⚠️ Error</h3>
+                <p>No vegetation communities loaded. Please add the TASVEG communities array to app.js</p>
+            </div>
+        `;
+        return;
+    }
+    
     const structureEl = document.getElementById("structure");
     const moistureEl = document.getElementById("moisture");
     const dominantEl = document.getElementById("dominant");
@@ -2011,7 +2003,7 @@ function exportDecisionRecord() {
         },
         results: currentResults,
         photos_count: photos.length,
-        version: "8.0"
+        version: APP_VERSION
     };
     
     const dataStr = JSON.stringify(record, null, 2);
@@ -2063,9 +2055,12 @@ async function saveRecord() {
         },
         results: currentResults,
         photos: photos,
-        version: "8.0"
+        version: APP_VERSION
     };
 
     await saveToDB(record);
     alert("✅ Record saved offline as decision record!");
 }
+
+// Display version in header
+document.getElementById('versionDisplay').textContent = `v${APP_VERSION}`;
