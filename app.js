@@ -1564,42 +1564,161 @@ const WEIGHTS = {
 const SPECIES_WEIGHT = 6;
 const ASSEMBLAGE_BONUS_MAX = 20;
 
-function detectAssemblage(speciesList, inputs) {
+function detectAssemblage(speciesList, inputs, environmentalContext = {}) {
+    if (!speciesList || speciesList.length === 0) return null;
+    
     let assemblageBonuses = [];
     
     for (let rule of assemblageRules) {
+        // ===== 1. APPLY EXCLUSIONS =====
+        let isExcluded = false;
+        
+        // Check moisture exclusions
+        if (rule.excludeMoisture && rule.excludeMoisture.length > 0) {
+            if (inputs.moisture && rule.excludeMoisture.includes(inputs.moisture)) {
+                isExcluded = true;
+            }
+        }
+        
+        // Check elevation exclusions
+        if (!isExcluded && rule.excludeElevation && rule.excludeElevation.length > 0) {
+            if (inputs.elevation && rule.excludeElevation.includes(inputs.elevation)) {
+                isExcluded = true;
+            }
+        }
+        
+        // Check structure exclusions
+        if (!isExcluded && rule.excludeStructure && rule.excludeStructure.length > 0) {
+            if (inputs.structure && rule.excludeStructure.includes(inputs.structure)) {
+                isExcluded = true;
+            }
+        }
+        
+        // Check dominant exclusions
+        if (!isExcluded && rule.excludeDominant && rule.excludeDominant.length > 0) {
+            if (inputs.dominant && rule.excludeDominant.includes(inputs.dominant)) {
+                isExcluded = true;
+            }
+        }
+        
+        if (isExcluded) continue;
+        
+        // ===== 2. APPLY REQUIRED CONDITIONS =====
+        let requirementsMet = true;
+        
+        // Check required moisture
+        if (rule.requireMoisture && rule.requireMoisture.length > 0) {
+            if (!inputs.moisture || !rule.requireMoisture.includes(inputs.moisture)) {
+                requirementsMet = false;
+            }
+        }
+        
+        // Check required elevation
+        if (requirementsMet && rule.requireElevation && rule.requireElevation.length > 0) {
+            if (!inputs.elevation || !rule.requireElevation.includes(inputs.elevation)) {
+                requirementsMet = false;
+            }
+        }
+        
+        // Check required structure
+        if (requirementsMet && rule.requireStructure && rule.requireStructure.length > 0) {
+            if (!inputs.structure || !rule.requireStructure.includes(inputs.structure)) {
+                requirementsMet = false;
+            }
+        }
+        
+        if (!requirementsMet) continue;
+        
+        // ===== 3. MATCH SPECIES =====
         let matches = 0;
-        for (let sp of speciesList) {
+        let matchedSpecies = [];
+        
+        for (let userSp of speciesList) {
+            const userSpLower = userSp.toLowerCase().trim();
+            
             for (let ruleSp of rule.species) {
-                if (sp.toLowerCase().includes(ruleSp.toLowerCase()) || 
-                    ruleSp.toLowerCase().includes(sp.toLowerCase())) {
+                const ruleSpLower = ruleSp.toLowerCase();
+                
+                // Handle wildcard matching for genus-level rules (e.g., "Baumea spp.")
+                let isMatch = false;
+                if (ruleSpLower.endsWith(' spp.')) {
+                    const genus = ruleSpLower.replace(' spp.', '');
+                    if (userSpLower.includes(genus)) {
+                        isMatch = true;
+                    }
+                } else {
+                    // Standard matching
+                    if (userSpLower.includes(ruleSpLower) || ruleSpLower.includes(userSpLower)) {
+                        isMatch = true;
+                    }
+                }
+                
+                if (isMatch && !matchedSpecies.includes(ruleSp)) {
                     matches++;
-                    break;
+                    matchedSpecies.push(ruleSp);
+                    break; // Count each user species once per rule
                 }
             }
         }
         
+        // ===== 4. CALCULATE BONUS =====
         if (matches >= rule.minMatches) {
+            let bonus = rule.bonus;
+            
+            // Bonus for extra matches beyond minimum
+            if (rule.bonusPerExtraMatch && matches > rule.minMatches) {
+                bonus += (matches - rule.minMatches) * rule.bonusPerExtraMatch;
+            }
+            
+            // Bonus for trait matches from user inputs
             let traitBonus = 0;
             if (rule.traitMatch) {
-                for (let [key, value] of Object.entries(rule.traitMatch)) {
-                    if (inputs[key] === value) traitBonus += 5;
+                for (let [traitKey, expectedValue] of Object.entries(rule.traitMatch)) {
+                    if (inputs[traitKey] === expectedValue) {
+                        traitBonus += 5;
+                    }
+                    // Also check environmental context
+                    if (environmentalContext[traitKey] === expectedValue) {
+                        traitBonus += 3;
+                    }
                 }
             }
+            
+            bonus += traitBonus;
+            
+            // Apply maximum bonus cap
+            const maxBonus = rule.maxBonus || 35;
+            bonus = Math.min(bonus, maxBonus);
+            
             assemblageBonuses.push({
                 name: rule.name,
-                bonus: rule.bonus + traitBonus,
-                matches: matches
+                description: rule.description || rule.name,
+                bonus: bonus,
+                matches: matches,
+                requiredMatches: rule.minMatches,
+                matchedSpecies: matchedSpecies,
+                traitBonus: traitBonus
             });
         }
     }
     
-    // Return highest bonus if multiple assemblages detected
-    if (assemblageBonuses.length > 0) {
-        assemblageBonuses.sort((a, b) => b.bonus - a.bonus);
-        return assemblageBonuses[0];
+    // ===== 5. RETURN BEST MATCH =====
+    if (assemblageBonuses.length === 0) return null;
+    
+    // Sort by bonus (highest first), then by match count
+    assemblageBonuses.sort((a, b) => {
+        if (a.bonus !== b.bonus) return b.bonus - a.bonus;
+        return b.matches - a.matches;
+    });
+    
+    const best = assemblageBonuses[0];
+    
+    // Optional: Store secondary matches for debugging/display
+    if (assemblageBonuses.length > 1) {
+        best.alternatives = assemblageBonuses.slice(1, 4);
     }
-    return null;
+    
+    return best;
 }
 
 function applyHardExclusions(comm, inputs, environmentalContext) {
