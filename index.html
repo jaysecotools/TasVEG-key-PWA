@@ -362,6 +362,62 @@ summary {
     </div>
 </div>
 
+<!-- ENVIRONMENTAL CONTEXT CARD - Add after existing inputs card -->
+<div class="card">
+    <h3>🌍 Environmental Context</h3>
+    <p class="small">Optional fields that dramatically improve accuracy</p>
+    
+    <label>🪨 Substrate / Geology</label>
+    <select id="substrate">
+        <option value="">-- Optional --</option>
+        <option value="dolerite">Dolerite</option>
+        <option value="sandstone">Sandstone</option>
+        <option value="mudstone">Mudstone</option>
+        <option value="limestone">Limestone</option>
+        <option value="granite">Granite</option>
+        <option value="alluvium">Alluvium</option>
+        <option value="quartzite">Quartzite</option>
+    </select>
+    
+    <label>💧 Drainage</label>
+    <select id="drainage">
+        <option value="">-- Optional --</option>
+        <option value="well_drained">Well drained</option>
+        <option value="moderate">Moderate</option>
+        <option value="poor">Poor / Impeded</option>
+        <option value="very_poor">Very poor (permanently wet)</option>
+    </select>
+    
+    <label>🌬️ Exposure</label>
+    <select id="exposure">
+        <option value="">-- Optional --</option>
+        <option value="sheltered">Sheltered</option>
+        <option value="moderate">Moderate</option>
+        <option value="exposed">Exposed</option>
+        <option value="very_exposed">Very exposed (ridge/coast)</option>
+    </select>
+    
+    <label>🔥 Fire History</label>
+    <select id="fire_history">
+        <option value="">-- Optional --</option>
+        <option value="none">No recent fire</option>
+        <option value="old">Old fire (>20 years)</option>
+        <option value="recent">Recent fire (5-20 years)</option>
+        <option value="very_recent">Very recent (<5 years)</option>
+    </select>
+    
+    <label>🏗️ Disturbance</label>
+    <select id="disturbance">
+        <option value="">-- Optional --</option>
+        <option value="none">None / Natural</option>
+        <option value="light">Light (tracks, selective logging)</option>
+        <option value="moderate">Moderate (clearing, grazing)</option>
+        <option value="heavy">Heavy (cleared, plantation)</option>
+    </select>
+    
+    <div id="elevationHint" class="small" style="margin-top:8px; color:#666;"></div>
+</div>
+    
 <div id="results"></div>
 
 <footer>
